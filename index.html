@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Книга рецептов</title>
+<meta name="description" content="Все рецепты из нашей папки: ПП и обычные, по разделам — завтраки, горячее, супы, салаты, перекусы, десерты, выпечка, торты, соусы, заготовки.">
+<meta name="theme-color" content="#e4572e">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232a1f1d'/%3E%3Ccircle cx='16' cy='17' r='9' fill='none' stroke='%23e4572e' stroke-width='2.4'/%3E%3Ccircle cx='16' cy='17' r='4' fill='%23f6d68b'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=Manrope:wght@400;500;600;700;800&family=Cormorant+Garamond:ital,wght@1,500;1,600&display=swap">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header class="bar">
+  <div class="bar__in">
+    <a class="logo" href="#top"><span class="logo__dot"></span>Книга рецептов</a>
+    <div class="mode" id="mode" role="group" aria-label="ПП или обычные">
+      <button type="button" data-m="all" aria-pressed="true">Все</button>
+      <button type="button" data-m="pp" aria-pressed="false"><i></i>ПП</button>
+      <button type="button" data-m="reg" aria-pressed="false">Обычные</button>
+    </div>
+    <label class="find">
+      <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="9" cy="9" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m13.5 13.5 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <input id="q" type="search" placeholder="Блюдо или продукт" aria-label="Поиск по названию и ингредиентам" autocomplete="off">
+    </label>
+  </div>
+</header>
+
+<main id="top">
+  <section class="poster" aria-label="Книга рецептов">
+    <div class="poster__stage">
+      <h1 class="poster__title" aria-label="Книга рецептов">
+        <span class="poster__w1" aria-hidden="true">Книга</span>
+        <span class="poster__w2" aria-hidden="true">рецептов</span>
+      </h1>
+      <div class="poster__plates" id="heroPlates"></div>
+    </div>
+    <div class="poster__foot">
+      <p class="poster__lede">Всё из нашей папки с&nbsp;рецептами: марафоны, сборники, карточки и&nbsp;заметки. Разложено по&nbsp;приёмам пищи, ПП отделены от&nbsp;обычных.</p>
+      <dl class="poster__stats">
+        <div><dd data-count="all"></dd><dt>рецептов</dt></div>
+        <div><dd data-count="pp"></dd><dt>ПП</dt></div>
+        <div><dd data-count="reg"></dd><dt>обычных</dt></div>
+        <div><dd data-count="kbju"></dd><dt>с КБЖУ</dt></div>
+      </dl>
+    </div>
+  </section>
+
+  <nav class="cats" id="cats" aria-label="Разделы"><div class="cats__in" id="catsIn"></div></nav>
+
+  <div class="tools">
+    <div class="tools__row">
+      <button class="tools__more" id="moreBtn" type="button" aria-expanded="false" aria-controls="filters">Фильтры <i>▾</i></button>
+      <label class="tools__sort"><span>Порядок</span>
+        <select id="sort">
+          <option value="photo">сначала с фото</option>
+          <option value="az">по алфавиту</option>
+          <option value="kcal">по калорийности</option>
+          <option value="rand">вперемешку</option>
+        </select>
+      </label>
+      <div class="pills" role="group" aria-label="Показать">
+        <button type="button" id="fPhoto" aria-pressed="false">С фото</button>
+        <button type="button" id="fK" aria-pressed="false">С КБЖУ</button>
+        <button type="button" id="fFav" aria-pressed="false">♥ Избранное</button>
+      </div>
+    </div>
+    <div class="filters" id="filters">
+      <div class="chips" id="tags" role="group" aria-label="Основной продукт"></div>
+      <label class="tools__src"><span>Источник</span><select id="src"><option value="">все источники</option></select></label>
+    </div>
+  </div>
+
+  <section class="sect" aria-labelledby="h-list">
+    <header class="sect__head">
+      <h2 id="h-list"><span id="listTitle">Все рецепты</span><sup id="listCount"></sup></h2>
+      <p class="sect__hint" id="listHint"></p>
+    </header>
+    <div class="wall" id="wall"></div>
+    <p class="none" id="none" hidden>Ничего не нашлось. Попробуйте другое слово или снимите фильтры.</p>
+    <div class="more"><button type="button" class="btn" id="moreCards" hidden>Показать ещё</button></div>
+  </section>
+
+  <footer class="end">
+    <p class="end__mark">Книга рецептов</p>
+    <p>Собрано автоматически из PDF, фото и документов в папке «Рецепты»: текст распознан, разложен на ингредиенты и шаги. ПП — по пометке программы или по составу (без сахара, белой муки, сливочного масла и майонеза). В распознанных сканах возможны опечатки — источник и страница указаны в каждом рецепте.</p>
+  </footer>
+</main>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="sheet__scrim" data-close></div>
+  <article class="sheet__card" role="dialog" aria-modal="true" aria-labelledby="sheetName">
+    <div class="sheet__top">
+      <div class="sheet__nav">
+        <button type="button" id="sheetPrev" aria-label="Предыдущий рецепт">‹</button>
+        <span id="sheetPos"></span>
+        <button type="button" id="sheetNext" aria-label="Следующий рецепт">›</button>
+      </div>
+      <button class="sheet__x" type="button" data-close aria-label="Закрыть">×</button>
+    </div>
+    <div class="sheet__media" id="sheetMedia"></div>
+    <div class="sheet__info" id="sheetInfo"></div>
+  </article>
+</div>
+
+<div class="lock" id="lock" hidden>
+  <form class="lock__card" autocomplete="on">
+    <p class="lock__title">Книга<br>рецептов</p>
+    <label class="lock__lbl" for="pw">Пароль</label>
+    <input id="pw" name="password" type="password" autocomplete="current-password" required>
+    <button class="btn" type="submit">Открыть</button>
+    <p class="lock__err" aria-live="polite"></p>
+    <p class="lock__note">Пароль нужен один раз на этом устройстве.</p>
+  </form>
+</div>
+
+<script src="assets/app.js"></script>
+</body>
+</html>
