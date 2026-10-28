@@ -141,11 +141,19 @@ function start(ALL, myPhotos) {
     get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
     set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* приватный режим */ } },
   };
-  const favs = new Set(store.get('recipes.favs', []));
-  const saveFavs = () => store.set('recipes.favs', [...favs]);
-  const gone = new Set(store.get('recipes.deleted', []));
+  // избранное: своё с этого устройства + отмеченное на сайте (fv), кроме снятого здесь
+  const unfav = new Set(store.get('recipes.unfav', []));
+  const baked = new Set(ALL.filter((r) => r.fv).map((r) => r.id));
+  const favs = new Set([...store.get('recipes.favs', []), ...[...baked].filter((id) => !unfav.has(id))]);
+  const saveFavs = () => {
+    baked.forEach((id) => (favs.has(id) ? unfav.delete(id) : unfav.add(id)));
+    store.set('recipes.favs', [...favs].filter((id) => !baked.has(id))); store.set('recipes.unfav', [...unfav]);
+  };
+  const ids = new Set(ALL.map((r) => r.id));
+  const gone = new Set(store.get('recipes.deleted', []).filter((id) => ids.has(id)));  // уже удалённые с сайта не считаем
   const saveGone = () => store.set('recipes.deleted', [...gone]);
   const mine = new Map([...myPhotos].map(([id, b]) => [id, URL.createObjectURL(b)]));
+  const myBlobs = new Map(myPhotos);
   const pic = (r) => mine.get(r.id) || r.img;
   const inCat = (r, c) => r.c === c || (r.cs && r.cs.includes(c));
 
@@ -248,6 +256,68 @@ function start(ALL, myPhotos) {
     drawMode(); drawTrash(); drawCats(); drawTags(); render(true);
   }
   document.querySelectorAll('[data-reset]').forEach((b) => b.addEventListener('click', resetAll));
+
+  /* ---------- «Мои изменения»: код и файл для переноса на сайт ---------- */
+  const share = $('#share'), mineBtn = $('#fMine');
+  const changes = () => ({
+    d: [...gone], f: [...favs].filter((id) => !baked.has(id)), u: [...unfav], p: [...myBlobs.keys()],
+  });
+  const total = (c) => c.d.length + c.f.length + c.u.length + c.p.length;
+  const toCode = (c) => 'РЕЦЕПТЫ:' + btoa(JSON.stringify({ v: 1, d: c.d, f: c.f, u: c.u }));
+  function drawMine() {
+    const n = total(changes());
+    mineBtn.hidden = !n; mineBtn.querySelector('small').textContent = n || '';
+  }
+  function openShare() {
+    const c = changes();
+    const part = [[c.d.length, 'удалено'], [c.f.length, 'в избранном'], [c.u.length, 'убрано из избранного'], [c.p.length, 'своих фото']]
+      .filter(([n]) => n).map(([n, w]) => `${w}: ${n}`);
+    $('#shareSum').textContent = part.length ? part.join(' · ') : 'Изменений пока нет.';
+    $('#shareCode').value = c.d.length + c.f.length + c.u.length ? toCode(c) : '';
+    $('#shareCode').hidden = !$('#shareCode').value;
+    $('#shareSend').hidden = $('#shareCopy').hidden = !$('#shareCode').value;
+    $('#shareFile').hidden = !c.p.length;
+    $('#shareMsg').textContent = '';
+    share.showModal();
+  }
+  mineBtn.addEventListener('click', openShare);
+  const say = (t) => { $('#shareMsg').textContent = t; };
+  async function copy(text) {
+    try { await navigator.clipboard.writeText(text); return true; } catch (e) {
+      const ta = $('#shareCode'); ta.select();
+      try { return document.execCommand('copy'); } catch (e2) { return false; }
+    }
+  }
+  $('#shareCopy').addEventListener('click', async () => {
+    say(await copy($('#shareCode').value) ? 'Код скопирован. Вставьте его в чат с Claude.' : 'Не получилось скопировать: выделите код и скопируйте вручную.');
+  });
+  $('#shareSend').addEventListener('click', async () => {
+    const text = $('#shareCode').value;
+    if (navigator.share) { try { await navigator.share({ title: 'Книга рецептов: изменения', text }); return; } catch (e) { if (e.name === 'AbortError') return; } }
+    say(await copy(text) ? 'Код скопирован. Вставьте его в чат с Claude.' : 'Выделите код и скопируйте вручную.');
+  });
+  const asData = (b) => new Promise((ok) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.readAsDataURL(b); });
+  $('#shareFile').addEventListener('click', async () => {
+    say('Собираю файл…');
+    const c = changes(), p = {};
+    for (const id of c.p) p[id] = await asData(myBlobs.get(id));
+    const name = `recepty-${new Date().toISOString().slice(0, 10)}.json`;
+    const file = new File([JSON.stringify({ v: 1, d: c.d, f: c.f, u: c.u, p })], name, { type: 'application/json' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: 'Книга рецептов: изменения' }); say('Готово.'); return; } catch (e) { if (e.name === 'AbortError') { say(''); return; } }
+    }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    say(`Файл ${name} сохранён в «Загрузки». Пришлите его Claude.`);
+  });
+  $('#shareClear').addEventListener('click', async () => {
+    if (!confirm('Очистить удаления, избранное и свои фото на этом устройстве?\nСделайте это, когда Claude уже перенёс их на сайт.')) return;
+    gone.clear(); saveGone(); favs.clear(); unfav.clear(); baked.forEach((id) => favs.add(id)); saveFavs();
+    await idb('readwrite', (s) => s.clear()).catch(() => {});
+    mine.forEach((u) => URL.revokeObjectURL(u)); mine.clear(); myBlobs.clear();
+    share.close(); state.trash = false;
+    drawTrash(); drawMine(); drawCats(); drawTags(); render(false);
+  });
   const moreBtn = $('#moreBtn');
   moreBtn.addEventListener('click', () => {
     const open = $('#filters').classList.toggle('is-open'); moreBtn.setAttribute('aria-expanded', open);
@@ -387,11 +457,12 @@ function start(ALL, myPhotos) {
       favs.has(id) ? favs.delete(id) : favs.add(id); saveFavs();
       const on = favs.has(id); fb.setAttribute('aria-pressed', on); fb.textContent = on ? '♥ В избранном' : '♡ В избранное';
       const c = wall.querySelector(`.card[data-id="${id}"]`); if (c) { c.outerHTML = card(byId.get(id)); hydrate(wall); }
+      drawMine();
     }
     if (e.target.closest('#photoDel')) {
       const id = seq[pos] ?? +location.hash.slice(2);
       idb('readwrite', (s) => s.delete(id)).then(() => {
-        URL.revokeObjectURL(mine.get(id)); mine.delete(id); fill(byId.get(id)); render(false);
+        URL.revokeObjectURL(mine.get(id)); mine.delete(id); myBlobs.delete(id); fill(byId.get(id)); render(false); drawMine();
       });
     }
     if (e.target.closest('#delBtn')) {
@@ -402,7 +473,7 @@ function start(ALL, myPhotos) {
         gone.add(id); saveGone(); closeSheet();
       }
       if (state.trash && !gone.size) state.trash = false;
-      drawTrash(); drawCats(); drawTags(); render(false);
+      drawTrash(); drawMine(); drawCats(); drawTags(); render(false);
     }
   });
   sheet.addEventListener('change', (e) => {
@@ -413,8 +484,8 @@ function start(ALL, myPhotos) {
       .then((b) => idb('readwrite', (s) => s.put(b, id)).then(() => b))
       .then((b) => {
         if (mine.has(id)) URL.revokeObjectURL(mine.get(id));
-        mine.set(id, URL.createObjectURL(b));
-        fill(byId.get(id)); render(false);
+        mine.set(id, URL.createObjectURL(b)); myBlobs.set(id, b);
+        fill(byId.get(id)); render(false); drawMine();
         $('#sheetMsg').textContent = 'Фото сохранено на этом устройстве.';
       })
       .catch(() => { msg.textContent = 'Не получилось сохранить фото. Попробуйте другой снимок.'; });
@@ -433,7 +504,7 @@ function start(ALL, myPhotos) {
   const bar = $('.bar');
   addEventListener('scroll', () => bar.classList.toggle('is-stuck', scrollY > 10), { passive: true });
 
-  drawMode(); drawTrash(); drawCats(); drawTags(); render(false);
+  drawMode(); drawTrash(); drawMine(); drawCats(); drawTags(); render(false);
   const m = location.hash.match(/^#r(\d+)$/);
   if (m && byId.has(+m[1])) openSheet(+m[1], list.map((r) => r.id).includes(+m[1]) ? list.map((r) => r.id) : [+m[1]]);
 }

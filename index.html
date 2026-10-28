@@ -68,6 +68,7 @@
         <button type="button" id="fK" aria-pressed="false">С КБЖУ</button>
         <button type="button" id="fFav" aria-pressed="false">♥ Избранное</button>
         <button type="button" id="fTrash" aria-pressed="false" hidden>Удалённые <small></small></button>
+        <button type="button" id="fMine" hidden>⇪ Мои изменения <small></small></button>
       </div>
       <button type="button" class="tools__reset" id="resetBtn" data-reset hidden>Сбросить фильтры <i aria-hidden="true">✕</i></button>
     </div>
@@ -108,6 +109,25 @@
     <div class="sheet__info" id="sheetInfo"></div>
   </article>
 </div>
+
+<dialog class="share" id="share" aria-labelledby="shareTitle">
+  <form method="dialog" class="share__card">
+    <p class="share__title" id="shareTitle">Мои изменения</p>
+    <p class="share__sum" id="shareSum"></p>
+    <textarea id="shareCode" readonly rows="3" aria-label="Код изменений"></textarea>
+    <div class="share__acts">
+      <button type="button" class="btn" id="shareSend">Поделиться кодом</button>
+      <button type="button" class="btn btn--ghost" id="shareCopy">Скопировать</button>
+      <button type="button" class="btn btn--ghost" id="shareFile" hidden>Отправить фото файлом</button>
+    </div>
+    <p class="share__note">Пришлите код в чат с Claude, а если добавляли фото, то и файл. Изменения попадут на сайт для всех устройств.</p>
+    <p class="share__msg" id="shareMsg" aria-live="polite"></p>
+    <div class="share__foot">
+      <button type="button" class="share__clear" id="shareClear">Очистить на этом устройстве</button>
+      <button class="btn btn--ghost" value="close">Закрыть</button>
+    </div>
+  </form>
+</dialog>
 
 <div class="lock" id="lock" hidden>
   <form class="lock__card" autocomplete="on">

@@ -212,6 +212,17 @@ button { font: inherit; color: inherit; }
 .btn[aria-pressed="true"] { background: var(--tomato); color: var(--white); border-color: var(--tomato); }
 .btn--warn { border-color: var(--tomato); color: var(--tomato); }
 .btn--warn:hover { background: var(--tomato); color: var(--white); }
+.share { width: min(540px, calc(100vw - 32px)); padding: 0; border: 0; border-radius: 24px; background: var(--white); color: var(--ink); }
+.share::backdrop { background: rgba(42, 31, 29, .55); }
+.share__card { display: grid; gap: 14px; padding: 26px; }
+.share__title { margin: 0; font: 800 26px/1 var(--f-big); letter-spacing: -.03em; text-transform: uppercase; }
+.share__sum, .share__note, .share__msg { margin: 0; font-size: 15px; }
+.share__note, .share__msg { color: var(--ink-3); }
+.share textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1.5px solid var(--rule); border-radius: 12px; font: 12px/1.4 ui-monospace, Consolas, monospace; word-break: break-all; resize: none; background: var(--paper); color: var(--ink); }
+.share__acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.share__acts .btn, .share__foot .btn { height: 40px; padding: 0 16px; font-size: 14px; border-width: 1.5px; }
+.share__foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding-top: 6px; border-top: 1px solid var(--rule); }
+.share__clear { padding: 0; border: 0; background: none; color: var(--tomato); font-weight: 700; font-size: 14px; cursor: pointer; text-decoration: underline; }
 .sheet__msg { margin: 8px 0 0; min-height: 1.2em; font-size: 14px; color: var(--ink-3); }
 .who { margin: 0 0 10px; font: 800 12px/1.2 var(--f-big); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
 .ing { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
