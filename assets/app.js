@@ -157,7 +157,7 @@ function start(ALL, myPhotos) {
   const pic = (r) => mine.get(r.id) || r.img;
   const inCat = (r, c) => r.c === c || (r.cs && r.cs.includes(c));
 
-  ALL.forEach((r) => { r._q = norm(r.t + ' ' + r.i.join(' ')); r._t = norm(r.t); });
+  ALL.forEach((r) => { r._q = norm(r.t + ' ' + r.i.join(' ') + ' ' + (r.u ? r.w : '')); r._t = norm(r.t); });
   const byId = new Map(ALL.map((r) => [r.id, r]));
 
   const DEFAULT = { cat: 'all', mode: 'all', q: '', tag: '', src: '', photo: false, k: false, fav: false, trash: false, sort: 'photo' };
@@ -439,6 +439,7 @@ function start(ALL, myPhotos) {
       ${r.n || r.y ? `<p class="sheet__note">${esc([r.y, r.n].filter(Boolean).join('. '))}</p>` : ''}
       <div class="sheet__acts">
         <button type="button" class="btn btn--ghost" id="favBtn" aria-pressed="${fav}">${fav ? '♥ В избранном' : '♡ В избранное'}</button>
+        ${r.u ? `<a class="btn btn--ghost" href="${esc(r.u)}" target="_blank" rel="noopener noreferrer">Открыть в Instagram ↗</a>` : ''}
         <label class="btn btn--ghost">${mine.has(r.id) || r.img ? 'Заменить фото' : '+ Добавить фото'}<input type="file" accept="image/*" id="photoIn" hidden></label>
         ${mine.has(r.id) ? '<button type="button" class="btn btn--ghost" id="photoDel">Убрать моё фото</button>' : ''}
         <button type="button" class="btn btn--ghost btn--warn" id="delBtn">${gone.has(r.id) ? 'Вернуть рецепт' : 'Удалить рецепт'}</button>
