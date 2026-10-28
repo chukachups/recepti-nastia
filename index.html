@@ -67,7 +67,9 @@
         <button type="button" id="fPhoto" aria-pressed="false">С фото</button>
         <button type="button" id="fK" aria-pressed="false">С КБЖУ</button>
         <button type="button" id="fFav" aria-pressed="false">♥ Избранное</button>
+        <button type="button" id="fTrash" aria-pressed="false" hidden>Удалённые <small></small></button>
       </div>
+      <button type="button" class="tools__reset" id="resetBtn" data-reset hidden>Сбросить фильтры <i aria-hidden="true">✕</i></button>
     </div>
     <div class="filters" id="filters">
       <div class="chips" id="tags" role="group" aria-label="Основной продукт"></div>
@@ -81,7 +83,7 @@
       <p class="sect__hint" id="listHint"></p>
     </header>
     <div class="wall" id="wall"></div>
-    <p class="none" id="none" hidden>Ничего не нашлось. Попробуйте другое слово или снимите фильтры.</p>
+    <div class="none" id="none" hidden><p>Ничего не нашлось. Попробуйте другое слово или снимите фильтры.</p><button type="button" class="btn" data-reset>Сбросить фильтры</button></div>
     <div class="more"><button type="button" class="btn" id="moreCards" hidden>Показать ещё</button></div>
   </section>
 

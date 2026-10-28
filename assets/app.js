@@ -52,7 +52,7 @@
   /* фото: локально — как есть, в зашифрованной копии — расшифровываются, когда показываются на экране */
   const blobs = new Map();
   async function photoURL(path) {
-    if (!KEY) return path;
+    if (!KEY || path.startsWith('blob:')) return path;
     if (!blobs.has(path)) {
       blobs.set(path, fetch(path.replace(/\.webp$/, '.bin')).then((r) => r.arrayBuffer()).then((b) => decryptBuf(b, KEY))
         .then((p) => URL.createObjectURL(new Blob([p], { type: 'image/webp' }))));
@@ -68,7 +68,38 @@
     root.querySelectorAll('img[data-src]:not([src])').forEach((img) => (io && KEY ? io.observe(img) : show(img)));
   }
 
-function start(ALL) {
+  /* свои фото к рецептам: хранятся в IndexedDB этого браузера (на другие устройства не попадают) */
+  let dbp = null;
+  const db = () => dbp || (dbp = new Promise((ok, no) => {
+    const q = indexedDB.open('recipes', 1);
+    q.onupgradeneeded = () => q.result.createObjectStore('photos');
+    q.onsuccess = () => ok(q.result); q.onerror = () => no(q.error);
+  }));
+  const idb = (mode, fn) => db().then((d) => new Promise((ok, no) => {
+    const tx = d.transaction('photos', mode), q = fn(tx.objectStore('photos'));
+    tx.oncomplete = () => ok(q && q.result); tx.onerror = () => no(tx.error);
+  }));
+  async function loadMine() {
+    const [keys, vals] = await Promise.all([idb('readonly', (s) => s.getAllKeys()), idb('readonly', (s) => s.getAll())]);
+    return new Map(keys.map((k, n) => [k, vals[n]]));
+  }
+  function shrink(file, max = 1400) {
+    return new Promise((ok, no) => {
+      const img = new Image(), u = URL.createObjectURL(file);
+      img.onload = () => {
+        const s = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(u);
+        c.toBlob((b) => (b ? ok(b) : no(new Error('toBlob'))), 'image/jpeg', 0.85);
+      };
+      img.onerror = () => { URL.revokeObjectURL(u); no(new Error('не картинка')); };
+      img.src = u;
+    });
+  }
+
+function start(ALL, myPhotos) {
   const CATS = [
     { id: 'breakfast', name: 'Завтраки', c: '#f6d68b' },
     { id: 'hot', name: 'Горячее', c: '#ee9f7c' },
@@ -112,11 +143,17 @@ function start(ALL) {
   };
   const favs = new Set(store.get('recipes.favs', []));
   const saveFavs = () => store.set('recipes.favs', [...favs]);
+  const gone = new Set(store.get('recipes.deleted', []));
+  const saveGone = () => store.set('recipes.deleted', [...gone]);
+  const mine = new Map([...myPhotos].map(([id, b]) => [id, URL.createObjectURL(b)]));
+  const pic = (r) => mine.get(r.id) || r.img;
+  const inCat = (r, c) => r.c === c || (r.cs && r.cs.includes(c));
 
   ALL.forEach((r) => { r._q = norm(r.t + ' ' + r.i.join(' ')); r._t = norm(r.t); });
   const byId = new Map(ALL.map((r) => [r.id, r]));
 
-  const state = { cat: 'all', mode: store.get('recipes.mode', 'all'), q: '', tag: '', src: '', photo: false, k: false, fav: false, sort: 'photo', shown: PAGE };
+  const DEFAULT = { cat: 'all', mode: 'all', q: '', tag: '', src: '', photo: false, k: false, fav: false, trash: false, sort: 'photo' };
+  const state = { ...DEFAULT, mode: store.get('recipes.mode', 'all'), shown: PAGE };
   let list = [];
   let seed = Math.random();
 
@@ -127,13 +164,13 @@ function start(ALL) {
   setCount('reg', ALL.filter((r) => !r.pp).length);
   setCount('kbju', ALL.filter((r) => r.k).length);
 
-  const withPhoto = ALL.filter((r) => r.img && r.c !== 'sauce');
+  const withPhoto = ALL.filter((r) => pic(r) && r.c !== 'sauce' && !gone.has(r.id));
   const hero = $('#heroPlates');
   for (let n = 0; n < 3 && withPhoto.length; n++) {
     const r = withPhoto[Math.floor(Math.random() * withPhoto.length)];
     const b = document.createElement('button');
     b.type = 'button'; b.title = r.t; b.setAttribute('aria-label', r.t);
-    b.innerHTML = `<img data-src="${r.img}" alt="">`;
+    b.innerHTML = `<img data-src="${pic(r)}" alt="">`;
     b.addEventListener('click', () => openSheet(r.id, [r.id]));
     hero.appendChild(b);
   }
@@ -143,7 +180,7 @@ function start(ALL) {
   const catsIn = $('#catsIn');
   function drawCats() {
     const base = ALL.filter((r) => modeOk(r));
-    const cnt = {}; base.forEach((r) => { cnt[r.c] = (cnt[r.c] || 0) + 1; });
+    const cnt = {}; base.forEach((r) => [r.c, ...(r.cs || [])].forEach((c) => { cnt[c] = (cnt[c] || 0) + 1; }));
     const items = [{ id: 'all', name: 'Все', c: 'var(--ink)' }, ...CATS.filter((c) => cnt[c.id])];
     catsIn.innerHTML = items.map((c) => `<button type="button" data-cat="${c.id}" aria-pressed="${state.cat === c.id}"><i style="--c:${c.c}"></i>${c.name}<sup>${c.id === 'all' ? base.length : cnt[c.id]}</sup></button>`).join('');
   }
@@ -168,12 +205,13 @@ function start(ALL) {
     state.mode = b.dataset.m; store.set('recipes.mode', state.mode); state.shown = PAGE;
     drawMode(); drawCats(); drawTags(); render(true);
   });
-  function modeOk(r) { return state.mode === 'all' || (state.mode === 'pp' ? r.pp : !r.pp); }
+  // удалённые рецепты видны только в «Удалённых»
+  function modeOk(r) { return state.trash === gone.has(r.id) && (state.mode === 'all' || (state.mode === 'pp' ? r.pp : !r.pp)); }
 
   /* ---------- фильтры ---------- */
   const tagsEl = $('#tags');
   function drawTags() {
-    const base = ALL.filter((r) => modeOk(r) && (state.cat === 'all' || r.c === state.cat));
+    const base = ALL.filter((r) => modeOk(r) && (state.cat === 'all' || inCat(r, state.cat)));
     const cnt = {}; base.forEach((r) => r.tg.forEach((t) => { cnt[t] = (cnt[t] || 0) + 1; }));
     tagsEl.innerHTML = TAGS.filter((t) => cnt[t]).map((t) => `<button type="button" data-tag="${t}" aria-pressed="${state.tag === t}">${t}<small>${cnt[t]}</small></button>`).join('');
   }
@@ -193,6 +231,23 @@ function start(ALL) {
     state[key] = !state[key]; e.currentTarget.setAttribute('aria-pressed', state[key]); state.shown = PAGE; render(true);
   });
   toggle('#fPhoto', 'photo'); toggle('#fK', 'k'); toggle('#fFav', 'fav');
+  const trashBtn = $('#fTrash');
+  function drawTrash() {
+    trashBtn.hidden = !gone.size && !state.trash;
+    trashBtn.querySelector('small').textContent = gone.size || '';
+    trashBtn.setAttribute('aria-pressed', state.trash);
+  }
+  trashBtn.addEventListener('click', () => {
+    state.trash = !state.trash; state.shown = PAGE;
+    drawTrash(); drawCats(); drawTags(); render(true);
+  });
+  function resetAll() {
+    Object.assign(state, DEFAULT, { shown: PAGE }); store.set('recipes.mode', state.mode);
+    $('#q').value = ''; srcSel.value = ''; $('#sort').value = state.sort;
+    ['#fPhoto', '#fK', '#fFav'].forEach((id) => $(id).setAttribute('aria-pressed', 'false'));
+    drawMode(); drawTrash(); drawCats(); drawTags(); render(true);
+  }
+  document.querySelectorAll('[data-reset]').forEach((b) => b.addEventListener('click', resetAll));
   const moreBtn = $('#moreBtn');
   moreBtn.addEventListener('click', () => {
     const open = $('#filters').classList.toggle('is-open'); moreBtn.setAttribute('aria-expanded', open);
@@ -209,13 +264,13 @@ function start(ALL) {
   function filtered() {
     const words = state.q ? state.q.split(/\s+/) : [];
     let res = ALL.filter((r) => modeOk(r)
-      && (state.cat === 'all' || r.c === state.cat)
+      && (state.cat === 'all' || inCat(r, state.cat))
       && (!state.tag || r.tg.includes(state.tag))
       && (!state.src || r.s === state.src)
-      && (!state.photo || r.img) && (!state.k || r.k) && (!state.fav || favs.has(r.id))
+      && (!state.photo || pic(r)) && (!state.k || r.k) && (!state.fav || favs.has(r.id))
       && words.every((w) => r._q.includes(w)));
     const order = (a, b) => {
-      if (state.sort === 'photo' && !!b.img !== !!a.img) return b.img ? 1 : -1;
+      if (state.sort === 'photo' && !!pic(b) !== !!pic(a)) return pic(b) ? 1 : -1;
       if (state.sort === 'kcal') { const ka = a.k ? a.k.k : 1e9, kb = b.k ? b.k.k : 1e9; if (ka !== kb) return ka - kb; }
       if (state.sort === 'rand') return rnd(a.id) - rnd(b.id);
       if (words.length) { const sa = a._t.includes(words[0]) ? 0 : 1, sb = b._t.includes(words[0]) ? 0 : 1; if (sa !== sb) return sa - sb; }
@@ -230,8 +285,8 @@ function start(ALL) {
 
   function card(r) {
     const cat = CAT[r.c] || CATS[1];
-    const plate = r.img
-      ? `<img data-src="${r.img}" alt="" decoding="async">`
+    const plate = pic(r)
+      ? `<img data-src="${pic(r)}" alt="" decoding="async">`
       : `<span class="blank"><b>${esc(r.t.replace(/[«"]/g, '')[0] || '?')}</b><small>${cat.name}</small></span>`;
     const kc = r.k ? `<span class="peek">${fmt(r.k.k)} ккал${r.kp === '100 г' ? ' / 100 г' : ''}</span>` : '';
     return `<button type="button" class="card" data-id="${r.id}">
@@ -244,9 +299,10 @@ function start(ALL) {
   function render(resetScroll) {
     list = filtered();
     const cat = CAT[state.cat];
-    $('#listTitle').textContent = state.fav ? 'Избранное' : cat ? cat.name : (state.mode === 'pp' ? 'ПП-рецепты' : state.mode === 'reg' ? 'Обычные рецепты' : 'Все рецепты');
+    $('#listTitle').textContent = state.trash ? 'Удалённые' : state.fav ? 'Избранное' : cat ? cat.name : (state.mode === 'pp' ? 'ПП-рецепты' : state.mode === 'reg' ? 'Обычные рецепты' : 'Все рецепты');
     $('#listCount').textContent = list.length;
-    $('#listHint').textContent = HINTS[state.cat] || '';
+    $('#listHint').textContent = state.trash ? 'Рецепт можно вернуть: откройте его и нажмите «Вернуть рецепт».' : HINTS[state.cat] || '';
+    $('#resetBtn').hidden = Object.keys(DEFAULT).every((k) => state[k] === DEFAULT[k]);
     const part = list.slice(0, state.shown);
     let html = '', grp = '';
     const grouped = state.cat === 'all' && (state.sort === 'az' || state.sort === 'photo') && !state.q;
@@ -297,7 +353,7 @@ function start(ALL) {
     card.scrollTop = 0;
     $('#sheetPos').textContent = seq.length > 1 ? `${pos + 1} из ${seq.length}` : '';
     $('#sheetPrev').disabled = pos <= 0; $('#sheetNext').disabled = pos < 0 || pos >= seq.length - 1;
-    const photo = r.img ? `<img data-src="${r.img}" alt="${esc(r.t)}">` : `<span class="blank"><b>${esc(r.t.replace(/[«"]/g, '')[0] || '?')}</b><small>${cat.name}</small></span>`;
+    const photo = pic(r) ? `<img data-src="${pic(r)}" alt="${esc(r.t)}">` : `<span class="blank"><b>${esc(r.t.replace(/[«"]/g, '')[0] || '?')}</b><small>${cat.name}</small></span>`;
     let k = '';
     if (r.k) {
       k = `<div class="kbju"><div><b>${fmt(r.k.k)}</b><span>ккал</span></div><div><b>${fmt(r.k.b)}</b><span>белки</span></div><div><b>${fmt(r.k.j)}</b><span>жиры</span></div><div><b>${fmt(r.k.u)}</b><span>углев.</span></div><small>КБЖУ ${r.kp === '100 г' ? 'на 100 г' : 'на порцию'}</small></div>`;
@@ -308,10 +364,16 @@ function start(ALL) {
     const fav = favs.has(r.id);
     const where = [r.w, r.m].filter(Boolean).join(' · ');
     $('#sheetInfo').innerHTML = `
-      <div class="sheet__chips"><span class="chip" style="background:${cat.c};border-color:${cat.c}">${cat.name}</span>${r.pp ? '<span class="chip chip--pp">ПП</span>' : '<span class="chip chip--reg">Обычный</span>'}</div>
+      <div class="sheet__chips">${[r.c, ...(r.cs || [])].map((c) => CAT[c]).filter(Boolean).map((c) => `<span class="chip" style="background:${c.c};border-color:${c.c}">${c.name}</span>`).join('')}${r.pp ? '<span class="chip chip--pp">ПП</span>' : '<span class="chip chip--reg">Обычный</span>'}</div>
       <h2 id="sheetName">${esc(r.t)}</h2>
       ${r.n || r.y ? `<p class="sheet__note">${esc([r.y, r.n].filter(Boolean).join('. '))}</p>` : ''}
-      <div class="sheet__acts"><button type="button" class="btn btn--ghost" id="favBtn" aria-pressed="${fav}">${fav ? '♥ В избранном' : '♡ В избранное'}</button></div>
+      <div class="sheet__acts">
+        <button type="button" class="btn btn--ghost" id="favBtn" aria-pressed="${fav}">${fav ? '♥ В избранном' : '♡ В избранное'}</button>
+        <label class="btn btn--ghost">${mine.has(r.id) || r.img ? 'Заменить фото' : '+ Добавить фото'}<input type="file" accept="image/*" id="photoIn" hidden></label>
+        ${mine.has(r.id) ? '<button type="button" class="btn btn--ghost" id="photoDel">Убрать моё фото</button>' : ''}
+        <button type="button" class="btn btn--ghost btn--warn" id="delBtn">${gone.has(r.id) ? 'Вернуть рецепт' : 'Удалить рецепт'}</button>
+      </div>
+      <p class="sheet__msg" id="sheetMsg" aria-live="polite"></p>
       ${r.i.length ? `<section><h3 class="who">Ингредиенты</h3><ul class="ing">${r.i.map((x) => li(x)).join('')}</ul></section>` : ''}
       ${r.st.length ? `<section><h3 class="who">Приготовление</h3><ol class="steps">${r.st.map((x) => li(x)).join('')}</ol></section>` : ''}
       <p class="src"><b>Источник:</b> ${esc(r.s)}${where ? ', ' + esc(where) : ''}${r.a && r.a.length ? `<br>Также встречается в программах: ${esc(r.a.join(', '))}` : ''}</p>`;
@@ -326,6 +388,36 @@ function start(ALL) {
       const on = favs.has(id); fb.setAttribute('aria-pressed', on); fb.textContent = on ? '♥ В избранном' : '♡ В избранное';
       const c = wall.querySelector(`.card[data-id="${id}"]`); if (c) { c.outerHTML = card(byId.get(id)); hydrate(wall); }
     }
+    if (e.target.closest('#photoDel')) {
+      const id = seq[pos] ?? +location.hash.slice(2);
+      idb('readwrite', (s) => s.delete(id)).then(() => {
+        URL.revokeObjectURL(mine.get(id)); mine.delete(id); fill(byId.get(id)); render(false);
+      });
+    }
+    if (e.target.closest('#delBtn')) {
+      const id = seq[pos] ?? +location.hash.slice(2), r = byId.get(id);
+      if (gone.has(id)) { gone.delete(id); saveGone(); fill(r); }
+      else {
+        if (!confirm(`Удалить «${r.t}»?\nВернуть его можно в списке «Удалённые» рядом с фильтрами.`)) return;
+        gone.add(id); saveGone(); closeSheet();
+      }
+      if (state.trash && !gone.size) state.trash = false;
+      drawTrash(); drawCats(); drawTags(); render(false);
+    }
+  });
+  sheet.addEventListener('change', (e) => {
+    if (e.target.id !== 'photoIn' || !e.target.files[0]) return;
+    const id = seq[pos] ?? +location.hash.slice(2), msg = $('#sheetMsg');
+    msg.textContent = 'Сохраняю фото…';
+    shrink(e.target.files[0])
+      .then((b) => idb('readwrite', (s) => s.put(b, id)).then(() => b))
+      .then((b) => {
+        if (mine.has(id)) URL.revokeObjectURL(mine.get(id));
+        mine.set(id, URL.createObjectURL(b));
+        fill(byId.get(id)); render(false);
+        $('#sheetMsg').textContent = 'Фото сохранено на этом устройстве.';
+      })
+      .catch(() => { msg.textContent = 'Не получилось сохранить фото. Попробуйте другой снимок.'; });
   });
   const step = (d) => { const n = pos + d; if (n < 0 || n >= seq.length) return; pos = n; fill(byId.get(seq[pos])); history.replaceState(null, '', '#r' + seq[pos]); };
   $('#sheetPrev').addEventListener('click', () => step(-1));
@@ -341,10 +433,11 @@ function start(ALL) {
   const bar = $('.bar');
   addEventListener('scroll', () => bar.classList.toggle('is-stuck', scrollY > 10), { passive: true });
 
-  drawMode(); drawCats(); drawTags(); render(false);
+  drawMode(); drawTrash(); drawCats(); drawTags(); render(false);
   const m = location.hash.match(/^#r(\d+)$/);
   if (m && byId.has(+m[1])) openSheet(+m[1], list.map((r) => r.id).includes(+m[1]) ? list.map((r) => r.id) : [+m[1]]);
 }
-  if (window.RECIPES) start(window.RECIPES);
-  else unlock().then(([data, key]) => { KEY = key; start(data); });
+  const boot = (data) => loadMine().catch(() => new Map()).then((m) => start(data, m));
+  if (window.RECIPES) boot(window.RECIPES);
+  else unlock().then(([data, key]) => { KEY = key; boot(data); });
 })();
