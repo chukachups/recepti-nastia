@@ -96,6 +96,12 @@ button { font: inherit; color: inherit; }
 .cats::before { left: 0; background: linear-gradient(90deg, var(--paper), rgba(248, 244, 236, 0)); }
 .cats::after { right: 0; background: linear-gradient(270deg, var(--paper) 30%, rgba(248, 244, 236, 0)); }
 .cats.more-l::before, .cats.more-r::after { opacity: 1; }
+/* на компьютере ленту мышкой не пролистать — показываем все разделы, с переносом на вторую строку */
+@media (hover: hover) and (pointer: fine) and (min-width: 821px) {
+  .cats__in { flex-wrap: wrap; overflow: visible; row-gap: 0; column-gap: clamp(14px, 2vw, 30px); }
+  .cats button { font-size: clamp(13px, 1.3vw, 19px); padding: 14px 0 12px; }
+  .cats::before, .cats::after { display: none; }
+}
 
 /* ---------- инструменты ---------- */
 .tools { max-width: 1440px; margin: 0 auto; padding: 22px var(--gr) 0 var(--gl); display: grid; gap: 14px; }
