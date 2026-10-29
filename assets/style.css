@@ -167,7 +167,9 @@ button { font: inherit; color: inherit; }
   transform: rotate(-12deg); background: var(--basil); color: var(--white); font: 800 14px/1 var(--f-big); box-shadow: 0 0 0 3px rgba(255, 253, 248, .7);
 }
 .peek { position: absolute; left: 12px; bottom: 12px; z-index: 2; padding: 5px 11px; border-radius: 999px; background: rgba(255, 253, 248, .88); font-size: 12px; font-weight: 800; color: var(--ink); }
-.heart { position: absolute; top: 12px; left: 12px; z-index: 2; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 253, 248, .88); color: var(--tomato); font-size: 17px; line-height: 1; }
+.marks { position: absolute; top: 12px; left: 12px; z-index: 2; display: flex; gap: 6px; }
+.heart, .wk { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 253, 248, .88); color: var(--tomato); font-size: 17px; line-height: 1; }
+.wk { font-size: 16px; background: var(--butter); }
 .card__body { flex: 1; display: flex; flex-direction: column; gap: 4px; padding: 14px 4px 0; }
 .card__src { font-size: 11.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
 .card__name { font: 600 18px/1.22 var(--f-big); letter-spacing: -.02em; text-wrap: balance; overflow-wrap: anywhere; }
@@ -196,6 +198,21 @@ button { font: inherit; color: inherit; }
 .kbju b { font: 800 clamp(18px, 2vw, 24px)/1 var(--f-big); letter-spacing: -.03em; }
 .kbju span { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
 .kbju small { grid-column: 1 / -1; text-align: center; font-size: 12px; font-weight: 600; color: var(--ink-3); }
+.kbju__edit { padding: 0; border: 0; background: none; font: inherit; color: var(--ink-2); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.kbju--add { display: block; width: 100%; padding: 16px; border: 2px dashed rgba(42, 31, 29, .35); font: 800 14px var(--f-text); color: var(--ink-2); cursor: pointer; }
+.kbju--add:hover { background: rgba(255, 253, 248, .95); color: var(--ink); }
+.kbju--form label { display: grid; justify-items: center; gap: 4px; }
+.kbju--form input:not([type]) { width: 100%; min-width: 0; height: 44px; padding: 0 4px; border: 1.5px solid var(--rule); border-radius: 12px; background: var(--white); text-align: center; font: 800 18px var(--f-big); color: var(--ink); }
+.kbju--form input:not([type]):focus { border-color: var(--ink); outline: none; }
+.kbju--form .kbju__per { grid-column: 1 / -1; display: flex; justify-content: center; gap: 6px; padding: 4px 0 0; }
+.kbju__per label { display: block; }
+.kbju__per input { position: absolute; opacity: 0; pointer-events: none; }
+.kbju__per span { display: block; padding: 7px 14px; border-radius: 999px; border: 1.5px solid var(--rule); background: var(--white); cursor: pointer; letter-spacing: 0; text-transform: none; font-size: 13px; color: var(--ink-2); }
+.kbju__per input:checked + span { border-color: var(--ink); background: var(--ink); color: var(--butter); }
+.kbju__per input:focus-visible + span { outline: 2px solid var(--ink); outline-offset: 2px; }
+.kbju--form .kbju__acts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; padding: 4px 0 0; }
+.kbju__acts .btn { height: 38px; padding: 0 14px; font-size: 14px; border-width: 1.5px; }
+.kbju__err { grid-column: 1 / -1; margin: 0; min-height: 1em; text-align: center; font-size: 13px; font-weight: 600; color: var(--tomato); }
 .sheet__info { padding: clamp(24px, 4vw, 44px); display: flex; flex-direction: column; gap: 18px; min-width: 0; }
 .sheet__chips { display: flex; flex-wrap: wrap; gap: 8px; padding-right: 48px; }
 .chip { padding: 5px 12px; border-radius: 999px; font: 800 11px var(--f-big); text-transform: uppercase; letter-spacing: .04em; border: 1.5px solid currentColor; }
@@ -212,6 +229,9 @@ button { font: inherit; color: inherit; }
 .btn[aria-pressed="true"] { background: var(--tomato); color: var(--white); border-color: var(--tomato); }
 .btn--warn { border-color: var(--tomato); color: var(--tomato); }
 .btn--warn:hover { background: var(--tomato); color: var(--white); }
+.btn--pp { border-color: var(--basil); color: var(--basil); }
+.btn--pp:hover { background: var(--basil-2); }
+.sect__clear { height: 40px; padding: 0 16px; font-size: 14px; border-width: 1.5px; }
 .share { width: min(540px, calc(100vw - 32px)); padding: 0; border: 0; border-radius: 24px; background: var(--white); color: var(--ink); }
 .share::backdrop { background: rgba(42, 31, 29, .55); }
 .share__card { display: grid; gap: 14px; padding: 26px; }
