@@ -64,6 +64,7 @@
       <label class="tools__sort"><span>Порядок</span>
         <select id="sort">
           <option value="photo">сначала с фото</option>
+          <option value="dish">по блюдам</option>
           <option value="az">по алфавиту</option>
           <option value="kcal">по калорийности</option>
           <option value="rand">вперемешку</option>
@@ -75,12 +76,14 @@
         <button type="button" id="fFav" aria-pressed="false">♥ Любимые</button>
         <button type="button" id="fWeek" aria-pressed="false" title="Приготовить на этой неделе">🗓 Неделя <small></small></button>
         <button type="button" id="fTrash" aria-pressed="false" hidden>Удалённые <small></small></button>
+        <button type="button" id="fPick" aria-pressed="false" title="Выбрать несколько рецептов и перенести в раздел">☑ Выбрать</button>
         <button type="button" id="fMine" hidden>⇪ Мои изменения <small></small></button>
       </div>
       <button type="button" class="tools__reset" id="resetBtn" data-reset hidden>Сбросить фильтры <i aria-hidden="true">✕</i></button>
     </div>
     <div class="filters" id="filters">
       <div class="chips" id="tags" role="group" aria-label="Основной продукт"></div>
+      <label class="tools__src"><span>Блюдо</span><select id="dish"><option value="">все блюда</option></select></label>
       <label class="tools__src"><span>Источник</span><select id="src"><option value="">все источники</option></select></label>
     </div>
   </div>
@@ -133,6 +136,33 @@
     <div class="share__foot">
       <button type="button" class="share__clear" id="shareClear">Очистить на этом устройстве</button>
       <button class="btn btn--ghost" value="close">Закрыть</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="pickbar" id="pickBar" hidden>
+  <div class="pickbar__in">
+    <p class="pickbar__n"><b id="pickN"></b><span id="pickMsg" aria-live="polite"></span></p>
+    <button type="button" class="btn btn--ghost" id="pickAll"></button>
+    <button type="button" class="btn btn--ghost" id="pickOut" hidden></button>
+    <button type="button" class="btn" id="pickMove" disabled>В раздел…</button>
+    <button type="button" class="pickbar__x" id="pickOff" aria-label="Закончить выбор">Готово</button>
+  </div>
+</div>
+
+<dialog class="share move" id="move" aria-labelledby="moveTitle">
+  <form method="dialog" class="share__card">
+    <p class="share__title" id="moveTitle">Перенести</p>
+    <div class="move__cats" id="moveCats" role="radiogroup" aria-label="Раздел"></div>
+    <label class="move__new"><span>или новый раздел</span><input id="moveNew" type="text" maxlength="40" placeholder="Например, Сырники" autocomplete="off"></label>
+    <p class="share__note" id="moveHow"></p>
+    <p class="move__err" id="moveErr" aria-live="polite"></p>
+    <div class="share__foot">
+      <div class="share__acts">
+        <button type="button" class="btn" data-how="move">Перенести</button>
+        <button type="button" class="btn btn--ghost" data-how="add">Добавить</button>
+      </div>
+      <button class="btn btn--ghost" value="close">Отмена</button>
     </div>
   </form>
 </dialog>

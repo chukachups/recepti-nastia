@@ -243,6 +243,37 @@ button { font: inherit; color: inherit; }
 .share__acts .btn, .share__foot .btn { height: 40px; padding: 0 16px; font-size: 14px; border-width: 1.5px; }
 .share__foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding-top: 6px; border-top: 1px solid var(--rule); }
 .share__clear { padding: 0; border: 0; background: none; color: var(--tomato); font-weight: 700; font-size: 14px; cursor: pointer; text-decoration: underline; }
+/* ---------- выбор нескольких и перенос в раздел ---------- */
+.wall__group--dish { font-size: 14px; }
+.card.is-pick .card__plate { overflow: hidden; }
+.card.is-pick[aria-pressed="true"] .card__plate { outline: 3px solid var(--ink); outline-offset: 3px; }
+.card.is-pick[aria-pressed="true"] .card__plate img { opacity: .82; }
+.tick { position: absolute; top: 12px; right: 12px; z-index: 3; width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--ink); background: rgba(255, 253, 248, .92); }
+.card[aria-pressed="true"] .tick { background: var(--ink) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m4 8 3 3 5-6' fill='none' stroke='%23f6d68b' stroke-width='2'/%3E%3C/svg%3E") center/18px no-repeat; }
+.card.is-pick .stamp { display: none; }
+body.is-picking .end { padding-bottom: 150px; }
+.pickbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; padding: 12px var(--gr) calc(12px + env(safe-area-inset-bottom, 0px)) var(--gl); background: var(--white); border-top: 2px solid var(--ink); box-shadow: 0 -20px 40px -30px rgba(42, 31, 29, .5); animation: up .35s var(--ease); }
+.pickbar__in { max-width: 1440px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pickbar__n { flex: 1 1 200px; margin: 0; display: grid; font-size: 13px; color: var(--ink-3); }
+.pickbar__n b { font: 800 16px var(--f-big); letter-spacing: -.02em; color: var(--ink); }
+.pickbar .btn { height: 40px; padding: 0 16px; font-size: 14px; border-width: 1.5px; }
+.pickbar .btn:disabled { opacity: .45; cursor: default; }
+.pickbar__x { height: 40px; padding: 0 12px; border: 0; background: none; font-weight: 800; font-size: 14px; color: var(--tomato); cursor: pointer; }
+.move__cats { display: flex; flex-wrap: wrap; gap: 6px; max-height: 40vh; overflow: auto; }
+.move__cats input { position: absolute; opacity: 0; pointer-events: none; }
+.move__cats span { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; border: 1.5px solid var(--rule); background: var(--white); font-weight: 700; font-size: 14px; cursor: pointer; }
+.move__cats span::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--c); }
+.move__cats input:checked + span { border-color: var(--ink); background: var(--ink); color: var(--butter); }
+.move__cats input:focus-visible + span { outline: 2px solid var(--ink); outline-offset: 2px; }
+.move__new { display: grid; gap: 6px; font-size: 13px; font-weight: 700; color: var(--ink-3); }
+.move__new input { height: 44px; padding: 0 14px; border: 1.5px solid var(--rule); border-radius: 12px; background: var(--paper); font: 600 16px var(--f-text); color: var(--ink); }
+.move__new input:focus { border-color: var(--ink); outline: none; }
+.move__err { margin: 0; min-height: 1.2em; font-size: 14px; font-weight: 700; color: var(--tomato); }
+@media (max-width: 560px) {
+  .pickbar__n { flex-basis: 100%; }
+  .pickbar .btn { flex: 1; justify-content: center; padding: 0 10px; }
+  .tick { top: 8px; right: 8px; width: 28px; height: 28px; }
+}
 .sheet__msg { margin: 8px 0 0; min-height: 1.2em; font-size: 14px; color: var(--ink-3); }
 .who { margin: 0 0 10px; font: 800 12px/1.2 var(--f-big); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
 .ing { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }

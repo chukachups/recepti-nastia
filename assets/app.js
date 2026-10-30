@@ -100,6 +100,9 @@
   }
 
 function start(ALL, myPhotos) {
+  // программы питания и постное меню убраны из книги (в данных тоже убираются при следующей сборке — apply_changes.py)
+  const DROP_SRC = /^Программа питания|^Постное меню/;
+  ALL = ALL.filter((r) => !DROP_SRC.test(r.s));
   const CATS = [
     { id: 'breakfast', name: 'Завтраки', c: '#f6d68b' },
     { id: 'hot', name: 'Горячее', c: '#ee9f7c' },
@@ -114,6 +117,13 @@ function start(ALL, myPhotos) {
     { id: 'drink', name: 'Напитки', c: '#acd5da' },
   ];
   const CAT = Object.fromEntries(CATS.map((c) => [c.id, c]));
+  // свои разделы: id раздела — его название, цвет — по названию из этой палитры
+  const OWN_C = ['#f4c7a1', '#c7d7ee', '#d9c6ec', '#f1d19a', '#b9dccb', '#f0b9a6', '#dde3a8', '#c9c1b5'];
+  const catOf = (id) => CAT[id] || (CAT[id] = { id, name: id, own: true, c: OWN_C[[...id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7) % OWN_C.length] });
+  const catList = () => {
+    const own = new Set(); ALL.forEach((r) => [r.c, ...(r.cs || [])].forEach((c) => { if (!CATS.some((x) => x.id === c)) own.add(c); }));
+    return [...CATS, ...[...own].sort((a, b) => a.localeCompare(b, 'ru')).map(catOf)];
+  };
   const HINTS = {
     all: 'Всё вместе, по разделам. Нажмите на рецепт, чтобы открыть ингредиенты и шаги.',
     breakfast: 'Сырники, омлеты, каши, оладьи и тосты.',
@@ -130,8 +140,67 @@ function start(ALL, myPhotos) {
   };
   // сборники целиком в своём разделе (по источнику; второй раздел, например «Завтраки», сохраняется)
   const SRC_CAT = { 'Белковые ужины': 'hot', 'Ужины на 50 г белка @valeryrodimova': 'hot' };
-  ALL.forEach((r) => { const c = SRC_CAT[r.s]; if (c) { r.c = c; if (r.cs) r.cs = r.cs.filter((x) => x !== c); } });
+  // cm — разделы выбраны вручную и уже перенесены на сайт, их не трогаем
+  ALL.forEach((r) => { const c = SRC_CAT[r.s]; if (c && !r.cm) { r.c = c; if (r.cs) r.cs = r.cs.filter((x) => x !== c); } });
   const TAGS = ['курица', 'индейка', 'мясо', 'рыба', 'морепродукты', 'творог', 'яйца', 'овощи', 'грибы', 'крупы', 'паста'];
+  // блюдо — по первому подходящему слову в названии («Пирог с курицей» — пирог, «Соус к котлетам» — соус)
+  const DISHES = [
+    ['Сырники', 'сырни|рикотник'],
+    ['Котлеты', 'котлет|зраз|по-киевски|биточк|кордон|крокет'],
+    ['Тефтели и фрикадельки', 'тефтел|фрикадел|митбол|польпетт|плескавиц'],
+    ['Салаты', 'салат|цезарь|нисуаз|винегрет|оливье|поке|боул|капрезе|табуле|мимоза|шуба|гнездо глухаря|черепаха'],
+    ['Супы', 'суп|борщ|щи(?![а-яё])|солянк|бульон|окрошк|гаспачо|уха(?![а-яё])|холодник|свекольник|том ям'],
+    ['Соусы и подливы', 'соус|подлив|заправк|майонез|песто|кетчуп|гуакамоле|сальса|айоли|бешамель|сладкий чили|дзадзики|лютениц'],
+    ['Пироги и тарты', 'пирог|киш(?![а-яё])|тарт(?!ал)|галет|шарлотк|татен|штрудел|кростат|пай(?![а-яё])|курник|питивье|спанакопит|пиде|сбричолат|клафути|карпатк|баноффи|манник|гата|pastel'],
+    ['Пирожки и булочки', 'пирожк|булоч|булк|бриош|ватрушк|круассан|синнабон|плюшк|пончик|чебурек|самса|беляш|сочни|рогалик|улитк|слойк|крендел|колечк|коржик|сушк|трубочк|корзиночк'],
+    ['Куличи', 'кулич|пасха'],
+    ['Торты', 'торт(?!ил)|наполеон|медовик|сметанник|павлов|бисквит|муравейник|кейк(?![а-яё])|красный бархат|перевертыш'],
+    ['Чизкейки', 'чизкейк'],
+    ['Печенье и пряники', 'печень|пряник|мадлен|крекер|сухар|бискотти|кантуччи|меренг|безе|макарун|курабье|кукис|брутти'],
+    ['Кексы и маффины', 'кекс|маффин|капкейк|банана-брэд'],
+    ['Брауни', 'брауни|бланди'],
+    ['Пирожные и эклеры', 'пирожн|эклер|профитрол|заварные'],
+    ['Вафли', 'вафл'],
+    ['Оладьи и панкейки', 'олад|панкейк|драник'],
+    ['Блины', 'блин(?:ы|чики?|ов|ами?)?(?![а-яё])'],
+    ['Запеканки', 'запеканк|мусака|пармиджан|мильфей'],
+    ['Омлеты и яйца', 'омлет|яичниц|фриттат|шакшук|скрэмбл|скрембл|пашот|бенедикт'],
+    ['Каши и гранола', 'каш[аиу](?![а-яё])|овсянк|гранол|мюсли'],
+    ['Хлеб и лепёшки', 'хлеб|лепеш|лаваш|фокачч|хачапури|чиабатт|багет|пита(?![а-яё])|роти|ротти|бао(?![а-яё])|батон|бейгл|бублик'],
+    ['Пицца', 'пицц'],
+    ['Паста и лазанья', 'паст[аыуе](?![а-яё])|спагетти|лазань|орзо|макарон|феттучин|тальятелл|ньокк|лапш|удон|фунчоз|ригатони|пенне'],
+    ['Бутерброды и бургеры', 'брускет|бутерброд|тост|сэндвич|сендвич|бургер|гамбургер|хот-дог|крок-'],
+    ['Роллы, шаурма, тако', 'ролл|рол(?![а-яё])|кимпаб|шаурм|буррито|тортиль|кесадил|тако(?:с)?(?![а-яё])|фахитос|вок(?![а-яё])'],
+    ['Рулеты', 'рулет'],
+    ['Пельмени и вареники', 'пельмен|вареник|манты|мантов|хинкал|равиоли|гедза'],
+    ['Закуски и тарталетки', 'тарталет|закуск|канапе|жюльен|жульен|сырная тарелка'],
+    ['Паштеты и намазки', 'паштет|риет|рийет|намазк|хумус|тапенад|спред|икра|бабагануш'],
+    ['Плов, рис, крупы', 'плов|ризотто|паэль|рис(?![а-яё])|гречк|булгур|киноа'],
+    ['Жаркое и рагу', 'жарко|рагу|гуляш|азу(?![а-яё])|бефстроганов|тушен|томлен|чахохбили|соте(?![а-яё])|карри|стифадо|бигос|бургиньон|фрикасе'],
+    ['Стейки и отбивные', 'стейк|отбивн|шницел|эскалоп|медальон|ромштекс'],
+    ['Шашлык и гриль', 'шашлык|шашлычк|кебаб|барбекю'],
+    ['Наггетсы и крылышки', 'наггетс|нагетс|крылыш|крылья|стрипс|палочки'],
+    ['Голубцы и фаршированное', 'фарширов|голубц|долма|перчики с фаршем|лодочки'],
+    ['Ветчина, буженина, ростбиф', 'буженин|карбонад|карбонат|рван|пастрам|пастром|ветчин|колбас|сосиск|бастурм|ростбиф|язык|деликатес|вырезк'],
+    ['Муссы, пудинги, тирамису', 'мусс|пудинг|панна|желе|суфле|трайфл|тирамису|крем-брюле|чиа(?![а-яё])|парфе'],
+    ['Конфеты и зефир', 'конфет|зефир|пастил|мармелад|трюфел|батончик|сникерс|птичье|киндер|kinder|рафаэлло|баунти|щербет|халв|ириск|сырки|молочный ломтик|шоколадная колбаса|шоколадная пп колбаса|орешки'],
+    ['Мороженое', 'морожен|сорбет|эскимо|пломбир'],
+    ['Кремы и карамель', 'крем(?![а-яё])|курд|ганаш|карамел|пропитк'],
+    ['Тесто', 'тесто(?![а-яё])'],
+    ['Десерты разные', 'десерт'],
+    ['Смузи и напитки', 'смузи|коктейл|лимонад|какао|латте|морс|компот|кисел|чай(?![а-яё])|напитк|пунш|глинтвейн|спритц|беллини|джин|лимончелло|сгроппино|санрайз'],
+    ['Заготовки', 'засолк|солени|квашен|варенье|джем|конфитюр|аджик|лечо|малосол|слабосол|маринад|маринован|пикул|заготов|заморозк'],
+    ['Гарниры и пюре', 'пюре|гарнир|фри(?![а-яё])'],
+  ].map(([n, s]) => [n, new RegExp('(?:^|[^а-яёa-z])(?:' + s + ')')]);
+  // не нашлось слова — по основному продукту (сладкое — в «Десерты разные»)
+  const BY_TAG = { курица: 'Из курицы', индейка: 'Из индейки', мясо: 'Из мяса', рыба: 'Из рыбы', морепродукты: 'Морепродукты', овощи: 'Из овощей', грибы: 'Из грибов', творог: 'Из творога', яйца: 'Из яиц', крупы: 'Плов, рис, крупы', паста: 'Паста и лазанья' };
+  const SWEET = new Set(['dessert', 'cake', 'bakery']);
+  function dishOf(r) {
+    const t = r.t.toLowerCase().replace(/ё/g, 'е'); let best = '', at = 1e9;
+    DISHES.forEach(([n, re]) => { const m = re.exec(t); if (m && m.index < at) { at = m.index; best = n; } });
+    return best || (r.c === 'drink' ? 'Смузи и напитки' : SWEET.has(r.c) ? 'Десерты разные' : BY_TAG[r.tg[0]]) || 'Другое';
+  }
+  const dishCmp = (a, b) => (a === 'Другое') - (b === 'Другое') || a.localeCompare(b, 'ru');
   const PAGE = 48;
 
   const $ = (s, el = document) => el.querySelector(s);
@@ -159,13 +228,19 @@ function start(ALL, myPhotos) {
   const myBlobs = new Map(myPhotos);
   const pic = (r) => mine.get(r.id) || r.img;
   const inCat = (r, c) => r.c === c || (r.cs && r.cs.includes(c));
-  // свои правки поверх данных сайта: ПП/обычный и КБЖУ; совпавшие с сайтом (уже перенесённые) забываем
-  const ppMine = store.get('recipes.pp', {}), kMine = store.get('recipes.kbju', {});
-  ALL.forEach((r) => { r._pp = !!r.pp; r._k = r.k; r._kp = r.kp; });
+  // свои правки поверх данных сайта: ПП/обычный, КБЖУ и разделы; совпавшие с сайтом (уже перенесённые) забываем
+  const ppMine = store.get('recipes.pp', {}), kMine = store.get('recipes.kbju', {}), catMine = store.get('recipes.cat', {});
+  ALL.forEach((r) => { r._pp = !!r.pp; r._k = r.k; r._kp = r.kp; r._c = [r.c, ...(r.cs || [])]; });
   const sameK = (a, b) => !!a && !!b && ['k', 'b', 'j', 'u', 'p'].every((f) => a[f] === b[f]);
   function applyMine() {
     const by = new Map(ALL.map((r) => [r.id, r]));
-    ALL.forEach((r) => { r.pp = r._pp; r.k = r._k; r.kp = r._kp; });
+    ALL.forEach((r) => { r.pp = r._pp; r.k = r._k; r.kp = r._kp; r.c = r._c[0]; r.cs = r._c.slice(1); });
+    Object.entries(catMine).forEach(([id, v]) => {
+      const r = by.get(+id);
+      if (!r || !v.length || v.join('|') === r._c.join('|')) { delete catMine[id]; return; }
+      r.c = v[0]; r.cs = v.slice(1);
+    });
+    store.set('recipes.cat', catMine);
     Object.entries(ppMine).forEach(([id, v]) => { const r = by.get(+id); if (!r || !!v === r._pp) delete ppMine[id]; else r.pp = !!v; });
     Object.entries(kMine).forEach(([id, v]) => {
       const r = by.get(+id);
@@ -179,10 +254,10 @@ function start(ALL, myPhotos) {
   const week = new Set(store.get('recipes.week', []).filter((id) => ids.has(id)));
   const saveWeek = () => store.set('recipes.week', [...week]);
 
-  ALL.forEach((r) => { r._q = norm(r.t + ' ' + r.i.join(' ') + ' ' + (r.u ? r.w : '')); r._t = norm(r.t); });
+  ALL.forEach((r) => { r._q = norm(r.t + ' ' + r.i.join(' ') + ' ' + (r.u ? r.w : '')); r._t = norm(r.t); r._d = dishOf(r); });
   const byId = new Map(ALL.map((r) => [r.id, r]));
 
-  const DEFAULT = { cat: 'all', mode: 'all', q: '', tag: '', src: '', photo: false, k: false, fav: false, week: false, trash: false, sort: 'photo' };
+  const DEFAULT = { cat: 'all', mode: 'all', q: '', tag: '', src: '', dish: '', photo: false, k: false, fav: false, week: false, trash: false, sort: 'photo' };
   const state = { ...DEFAULT, mode: store.get('recipes.mode', 'all'), shown: PAGE };
   let list = [];
   let seed = Math.random();
@@ -214,8 +289,9 @@ function start(ALL, myPhotos) {
   function drawCats() {
     const base = ALL.filter((r) => modeOk(r));
     const cnt = {}; base.forEach((r) => [r.c, ...(r.cs || [])].forEach((c) => { cnt[c] = (cnt[c] || 0) + 1; }));
-    const items = [{ id: 'all', name: 'Все', c: 'var(--ink)' }, ...CATS.filter((c) => cnt[c.id])];
-    catsIn.innerHTML = items.map((c) => `<button type="button" data-cat="${c.id}" aria-pressed="${state.cat === c.id}"><i style="--c:${c.c}"></i>${c.name}<sup>${c.id === 'all' ? base.length : cnt[c.id]}</sup></button>`).join('');
+    if (state.cat !== 'all' && !catList().some((c) => c.id === state.cat)) state.cat = 'all';  // свой раздел опустел
+    const items = [{ id: 'all', name: 'Все', c: 'var(--ink)' }, ...catList().filter((c) => cnt[c.id] || c.id === state.cat)];
+    catsIn.innerHTML = items.map((c) => `<button type="button" data-cat="${esc(c.id)}" aria-pressed="${state.cat === c.id}"><i style="--c:${c.c}"></i>${esc(c.name)}<sup>${c.id === 'all' ? base.length : cnt[c.id] || 0}</sup></button>`).join('');
   }
   catsIn.addEventListener('click', (e) => {
     const b = e.target.closest('button[data-cat]'); if (!b) return;
@@ -259,6 +335,12 @@ function start(ALL, myPhotos) {
     const o = document.createElement('option'); o.value = s; o.textContent = `${s} · ${srcCount[s]}`; srcSel.appendChild(o);
   });
   srcSel.addEventListener('change', () => { state.src = srcSel.value; state.shown = PAGE; render(true); });
+  const dishSel = $('#dish');
+  const dishCount = {}; ALL.forEach((r) => { dishCount[r._d] = (dishCount[r._d] || 0) + 1; });
+  Object.keys(dishCount).sort(dishCmp).forEach((d) => {
+    const o = document.createElement('option'); o.value = d; o.textContent = `${d} · ${dishCount[d]}`; dishSel.appendChild(o);
+  });
+  dishSel.addEventListener('change', () => { state.dish = dishSel.value; state.shown = PAGE; render(true); });
   $('#sort').addEventListener('change', (e) => { state.sort = e.target.value; seed = Math.random(); state.shown = PAGE; render(true); });
   const toggle = (id, key) => $(id).addEventListener('click', (e) => {
     state[key] = !state[key]; e.currentTarget.setAttribute('aria-pressed', state[key]); state.shown = PAGE; render(true);
@@ -285,7 +367,7 @@ function start(ALL, myPhotos) {
   });
   function resetAll() {
     Object.assign(state, DEFAULT, { shown: PAGE }); store.set('recipes.mode', state.mode);
-    $('#q').value = ''; srcSel.value = ''; $('#sort').value = state.sort;
+    $('#q').value = ''; srcSel.value = ''; dishSel.value = ''; $('#sort').value = state.sort;
     ['#fPhoto', '#fK', '#fFav', '#fWeek'].forEach((id) => $(id).setAttribute('aria-pressed', 'false'));
     drawMode(); drawTrash(); drawWeek(); drawCats(); drawTags(); render(true);
   }
@@ -295,12 +377,12 @@ function start(ALL, myPhotos) {
   const share = $('#share'), mineBtn = $('#fMine');
   const changes = () => ({
     d: [...gone], f: [...favs].filter((id) => !baked.has(id)), u: [...unfav], p: [...myBlobs.keys()],
-    pp: { ...ppMine }, k: { ...kMine },
+    pp: { ...ppMine }, k: { ...kMine }, cat: { ...catMine },
   });
   const ppOn = (c) => Object.values(c.pp).filter(Boolean).length, ppOff = (c) => Object.values(c.pp).filter((v) => !v).length;
-  const kN = (c) => Object.keys(c.k).length;
-  const total = (c) => c.d.length + c.f.length + c.u.length + c.p.length + ppOn(c) + ppOff(c) + kN(c);
-  const pack = (c) => ({ v: 2, d: c.d, f: c.f, u: c.u, pp: c.pp, k: c.k });
+  const kN = (c) => Object.keys(c.k).length, catN = (c) => Object.keys(c.cat).length;
+  const total = (c) => c.d.length + c.f.length + c.u.length + c.p.length + ppOn(c) + ppOff(c) + kN(c) + catN(c);
+  const pack = (c) => ({ v: 3, d: c.d, f: c.f, u: c.u, pp: c.pp, k: c.k, cat: c.cat });
   // btoa понимает только латиницу, а в КБЖУ есть «100 г» — кодируем через UTF-8
   const toCode = (c) => 'РЕЦЕПТЫ:' + b64.to(new TextEncoder().encode(JSON.stringify(pack(c))));
   function drawMine() {
@@ -310,7 +392,7 @@ function start(ALL, myPhotos) {
   function openShare() {
     const c = changes();
     const part = [[c.d.length, 'удалено'], [c.f.length, 'в любимых'], [c.u.length, 'убрано из любимых'], [ppOn(c), 'перенесено в ПП'],
-      [ppOff(c), 'убрано из ПП'], [kN(c), 'с моим КБЖУ'], [c.p.length, 'своих фото']]
+      [ppOff(c), 'убрано из ПП'], [kN(c), 'с моим КБЖУ'], [catN(c), 'перенесено в другие разделы'], [c.p.length, 'своих фото']]
       .filter(([n]) => n).map(([n, w]) => `${w}: ${n}`);
     $('#shareSum').textContent = part.length ? part.join(' · ') : 'Изменений пока нет.';
     $('#shareCode').value = total(c) - c.p.length ? toCode(c) : '';
@@ -351,9 +433,9 @@ function start(ALL, myPhotos) {
     say(`Файл ${name} сохранён в «Загрузки». Пришлите его Claude.`);
   });
   $('#shareClear').addEventListener('click', async () => {
-    if (!confirm('Очистить удаления, любимые, ПП, КБЖУ и свои фото на этом устройстве?\nСделайте это, когда Claude уже перенёс их на сайт.')) return;
+    if (!confirm('Очистить удаления, любимые, ПП, КБЖУ, разделы и свои фото на этом устройстве?\nСделайте это, когда Claude уже перенёс их на сайт.')) return;
     gone.clear(); saveGone(); favs.clear(); unfav.clear(); baked.forEach((id) => favs.add(id)); saveFavs();
-    Object.keys(ppMine).forEach((id) => delete ppMine[id]); Object.keys(kMine).forEach((id) => delete kMine[id]); applyMine(); drawCounts();
+    [ppMine, kMine, catMine].forEach((o) => Object.keys(o).forEach((id) => delete o[id])); applyMine(); drawCounts();
     await idb('readwrite', (s) => s.clear()).catch(() => {});
     mine.forEach((u) => URL.revokeObjectURL(u)); mine.clear(); myBlobs.clear();
     share.close(); state.trash = false;
@@ -378,6 +460,7 @@ function start(ALL, myPhotos) {
       && (state.cat === 'all' || inCat(r, state.cat))
       && (!state.tag || r.tg.includes(state.tag))
       && (!state.src || r.s === state.src)
+      && (!state.dish || r._d === state.dish)
       && (!state.photo || pic(r)) && (!state.k || r.k) && (!state.fav || favs.has(r.id)) && (!state.week || week.has(r.id))
       && words.every((w) => r._q.includes(w)));
     const order = (a, b) => {
@@ -387,21 +470,24 @@ function start(ALL, myPhotos) {
       if (words.length) { const sa = a._t.includes(words[0]) ? 0 : 1, sb = b._t.includes(words[0]) ? 0 : 1; if (sa !== sb) return sa - sb; }
       return a.id - b.id;
     };
-    if (state.cat === 'all' && (state.sort === 'az' || state.sort === 'photo') && !words.length) {
-      const pos = Object.fromEntries(CATS.map((c, n) => [c.id, n]));
+    // по блюдам: все сырники вместе, все котлеты вместе; внутри — сначала с фото, потом по алфавиту
+    if (state.sort === 'dish') res.sort((a, b) => dishCmp(a._d, b._d) || (!!pic(b) - !!pic(a)) || a.t.localeCompare(b.t, 'ru'));
+    else if (state.cat === 'all' && (state.sort === 'az' || state.sort === 'photo') && !words.length) {
+      const pos = Object.fromEntries(catList().map((c, n) => [c.id, n]));
       res.sort((a, b) => (pos[a.c] - pos[b.c]) || order(a, b));
     } else res.sort(order);
     return res;
   }
 
   function card(r) {
-    const cat = CAT[r.c] || CATS[1];
+    const cat = catOf(r.c);
     const plate = pic(r)
       ? `<img data-src="${pic(r)}" alt="" decoding="async">`
       : `<span class="blank"><b>${esc(r.t.replace(/[«"]/g, '')[0] || '?')}</b><small>${cat.name}</small></span>`;
     const kc = r.k ? `<span class="peek">${fmt(r.k.k)} ккал${r.kp === '100 г' ? ' / 100 г' : ''}</span>` : '';
-    return `<button type="button" class="card" data-id="${r.id}">
-      <span class="card__plate" style="--c:${cat.c}">${plate}${r.pp ? '<span class="stamp" title="ПП">ПП</span>' : ''}${favs.has(r.id) || week.has(r.id) ? `<span class="marks">${favs.has(r.id) ? '<span class="heart" aria-label="В любимых">♥</span>' : ''}${week.has(r.id) ? '<span class="wk" title="Приготовить на этой неделе" aria-label="На этой неделе">🗓</span>' : ''}</span>` : ''}${kc}</span>
+    const sel = picking ? ` aria-pressed="${picked.has(r.id)}"` : '';
+    return `<button type="button" class="card${picking ? ' is-pick' : ''}" data-id="${r.id}"${sel}>
+      <span class="card__plate" style="--c:${cat.c}">${picking ? '<span class="tick" aria-hidden="true"></span>' : ''}${plate}${r.pp ? '<span class="stamp" title="ПП">ПП</span>' : ''}${favs.has(r.id) || week.has(r.id) ? `<span class="marks">${favs.has(r.id) ? '<span class="heart" aria-label="В любимых">♥</span>' : ''}${week.has(r.id) ? '<span class="wk" title="Приготовить на этой неделе" aria-label="На этой неделе">🗓</span>' : ''}</span>` : ''}${kc}</span>
       <span class="card__body"><span class="card__src">${esc(r.s)}</span><span class="card__name">${esc(r.t)}</span>
       <span class="card__meta">${r.i.filter((x) => !x.startsWith('# ')).length} ингр. · ${r.st.filter((x) => !x.startsWith('# ')).length} ${plural(r.st.length, 'шаг', 'шага', 'шагов')}</span></span>
     </button>`;
@@ -409,19 +495,25 @@ function start(ALL, myPhotos) {
 
   function render(resetScroll) {
     list = filtered();
-    const cat = CAT[state.cat];
+    const cat = state.cat !== 'all' && catOf(state.cat);
     $('#listTitle').textContent = state.trash ? 'Удалённые' : state.week ? 'На этой неделе' : state.fav ? 'Любимые' : cat ? cat.name : (state.mode === 'pp' ? 'ПП-рецепты' : state.mode === 'reg' ? 'Обычные рецепты' : 'Все рецепты');
     $('#listCount').textContent = list.length;
     $('#listHint').textContent = state.trash ? 'Рецепт можно вернуть: откройте его и нажмите «Вернуть рецепт».'
-      : state.week ? 'Что готовим на этой неделе. Отметку можно снять в рецепте.' : HINTS[state.cat] || '';
+      : state.week ? 'Что готовим на этой неделе. Отметку можно снять в рецепте.'
+      : state.sort === 'dish' ? 'По блюдам: все сырники вместе, все котлеты вместе. Одно блюдо — в «Фильтрах».' : HINTS[state.cat] || '';
     $('#weekClear').hidden = !state.week || !week.size;
     $('#resetBtn').hidden = Object.keys(DEFAULT).every((k) => state[k] === DEFAULT[k]);
     const part = list.slice(0, state.shown);
-    let html = '', grp = '';
-    const grouped = state.cat === 'all' && (state.sort === 'az' || state.sort === 'photo') && !state.q;
-    const gcount = {}; if (grouped) list.forEach((r) => { gcount[r.c] = (gcount[r.c] || 0) + 1; });
+    let html = '', grp = null;
+    const key = state.sort === 'dish' ? (r) => r._d
+      : state.cat === 'all' && (state.sort === 'az' || state.sort === 'photo') && !state.q ? (r) => r.c : null;
+    const gcount = {}; if (key) list.forEach((r) => { gcount[key(r)] = (gcount[key(r)] || 0) + 1; });
     part.forEach((r) => {
-      if (grouped && r.c !== grp) { grp = r.c; const c = CAT[grp]; html += `<p class="wall__group"><i style="--c:${c.c}"></i>${c.name} <em>${gcount[grp]}</em></p>`; }
+      if (key && key(r) !== grp) {
+        grp = key(r);
+        html += state.sort === 'dish' ? `<p class="wall__group wall__group--dish">${esc(grp)} <em>${gcount[grp]}</em></p>`
+          : `<p class="wall__group"><i style="--c:${catOf(grp).c}"></i>${esc(catOf(grp).name)} <em>${gcount[grp]}</em></p>`;
+      }
       html += card(r);
     });
     wall.innerHTML = html;
@@ -429,7 +521,8 @@ function start(ALL, myPhotos) {
     $('#none').hidden = list.length > 0;
     $('#moreCards').hidden = list.length <= state.shown;
     $('#moreCards').textContent = `Показать ещё · осталось ${list.length - state.shown}`;
-    const set = !!(state.tag || state.src);
+    if (picking) drawPick();
+    const set = !!(state.tag || state.src || state.dish);
     moreBtn.classList.toggle('is-set', set);
     if (resetScroll) {
       const top = $('.tools').getBoundingClientRect().top + scrollY - 140;
@@ -440,7 +533,88 @@ function start(ALL, myPhotos) {
   $('#moreCards').addEventListener('click', () => { state.shown += PAGE * 2; render(false); });
   wall.addEventListener('click', (e) => {
     const b = e.target.closest('.card'); if (!b) return;
+    if (picking) {
+      const id = +b.dataset.id;
+      picked.has(id) ? picked.delete(id) : picked.add(id);
+      b.setAttribute('aria-pressed', picked.has(id)); drawPick(); return;
+    }
     openSheet(+b.dataset.id, list.map((r) => r.id));
+  });
+
+  /* ---------- выбор нескольких рецептов и перенос в раздел ---------- */
+  let picking = false;
+  const picked = new Set();
+  const pickBtn = $('#fPick'), pickBar = $('#pickBar'), moveDlg = $('#move');
+  const pickMsg = (t) => { $('#pickMsg').textContent = t; };
+  function drawPick() {
+    pickBtn.setAttribute('aria-pressed', picking);
+    pickBar.hidden = !picking; document.body.classList.toggle('is-picking', picking);
+    $('#pickN').textContent = picked.size ? `Выбрано: ${picked.size}` : 'Нажимайте на рецепты';
+    const all = list.length && list.every((r) => picked.has(r.id));
+    $('#pickAll').textContent = all ? 'Снять выбор' : `Выбрать ${list.length}`;
+    $('#pickMove').disabled = !picked.size;
+    const out = $('#pickOut');
+    out.hidden = state.cat === 'all'; out.disabled = !picked.size;
+    if (state.cat !== 'all') out.textContent = `Убрать из «${catOf(state.cat).name}»`;
+  }
+  pickBtn.addEventListener('click', () => {
+    picking = !picking; picked.clear(); pickMsg('');
+    drawPick(); render(false);
+  });
+  $('#pickOff').addEventListener('click', () => { picking = false; picked.clear(); drawPick(); render(false); });
+  $('#pickAll').addEventListener('click', () => {
+    if (list.length && list.every((r) => picked.has(r.id))) picked.clear(); else list.forEach((r) => picked.add(r.id));
+    drawPick(); render(false);
+  });
+  // новые разделы: cats — [основной, ...ещё]; совпавшие с сайтом applyMine сам забудет
+  function setCats(fn) {
+    picked.forEach((id) => { const r = byId.get(id), v = fn([r.c, ...(r.cs || [])]); if (v) catMine[id] = v; });
+    applyMine(); picked.clear();
+    drawMine(); drawCats(); drawTags(); render(false); drawPick();
+  }
+  $('#pickOut').addEventListener('click', () => {
+    const from = state.cat, n = picked.size;
+    let kept = 0;
+    setCats((cur) => { const v = cur.filter((c) => c !== from); if (!v.length) { kept++; return null; } return v; });
+    pickMsg(`Убрано из «${catOf(from).name}»: ${n - kept}` + (kept ? `. ${kept} — только в этом разделе, их сначала перенесите.` : ''));
+  });
+  const newCat = $('#moveNew');
+  $('#pickMove').addEventListener('click', () => {
+    const here = state.cat !== 'all' && catOf(state.cat);
+    $('#moveTitle').textContent = `Перенести ${picked.size} ${plural(picked.size, 'рецепт', 'рецепта', 'рецептов')}`;
+    $('#moveCats').innerHTML = catList().map((c) => `<label><input type="radio" name="to" value="${esc(c.id)}"><span style="--c:${c.c}">${esc(c.name)}</span></label>`).join('');
+    newCat.value = ''; $('#moveErr').textContent = '';
+    $('#moveHow').textContent = here
+      ? `«Перенести» — уйдут из «${here.name}» в выбранный раздел. «Добавить» — останутся в «${here.name}» и появятся ещё и там.`
+      : '«Перенести» — будут только в выбранном разделе. «Добавить» — останутся там, где были, и появятся ещё и там.';
+    moveDlg.showModal();
+  });
+  // Enter в поле нового раздела — как «Перенести», а не закрытие окна
+  newCat.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault(); $('[data-how="move"]', moveDlg).click();
+  });
+  newCat.addEventListener('input', () => { if (newCat.value.trim()) moveDlg.querySelectorAll('[name="to"]').forEach((x) => { x.checked = false; }); });
+  $('#moveCats').addEventListener('change', () => { newCat.value = ''; });
+  function target() {
+    const name = newCat.value.trim().replace(/\s+/g, ' ').slice(0, 40);
+    if (name) {
+      const same = catList().find((c) => norm(c.name) === norm(name));
+      return same ? same.id : name[0].toUpperCase() + name.slice(1);
+    }
+    const r = moveDlg.querySelector('[name="to"]:checked');
+    return r && r.value;
+  }
+  moveDlg.addEventListener('click', (e) => {
+    const how = e.target.closest('[data-how]'); if (!how) return;
+    const to = target();
+    if (!to) { $('#moveErr').textContent = 'Выберите раздел или впишите название нового.'; return; }
+    const from = state.cat, n = picked.size;
+    setCats(how.dataset.how === 'add'
+      ? (cur) => (cur.includes(to) ? null : [...cur, to])
+      : (cur) => [to, ...(from === 'all' ? [] : cur.filter((c) => c !== to && c !== from))]);
+    moveDlg.close();
+    pickMsg(`${how.dataset.how === 'add' ? 'Добавлено' : 'Перенесено'} в «${catOf(to).name}»: ${n}`);
   });
 
   /* ---------- окно рецепта ---------- */
@@ -460,7 +634,7 @@ function start(ALL, myPhotos) {
     if (lastFocus) lastFocus.focus({ preventScroll: true });
   }
   function fill(r) {
-    const cat = CAT[r.c] || CATS[1];
+    const cat = catOf(r.c);
     const card = $('.sheet__card', sheet);
     card.style.setProperty('--c', cat.c);
     card.scrollTop = 0;
@@ -476,7 +650,7 @@ function start(ALL, myPhotos) {
     const fav = favs.has(r.id);
     const where = [r.w, r.m].filter(Boolean).join(' · ');
     $('#sheetInfo').innerHTML = `
-      <div class="sheet__chips">${[r.c, ...(r.cs || [])].map((c) => CAT[c]).filter(Boolean).map((c) => `<span class="chip" style="background:${c.c};border-color:${c.c}">${c.name}</span>`).join('')}${r.pp ? '<span class="chip chip--pp">ПП</span>' : '<span class="chip chip--reg">Обычный</span>'}</div>
+      <div class="sheet__chips">${[r.c, ...(r.cs || [])].map(catOf).map((c) => `<span class="chip" style="background:${c.c};border-color:${c.c}">${esc(c.name)}</span>`).join('')}${r.pp ? '<span class="chip chip--pp">ПП</span>' : '<span class="chip chip--reg">Обычный</span>'}</div>
       <h2 id="sheetName">${esc(r.t)}</h2>
       ${r.n || r.y ? `<p class="sheet__note">${esc([r.y, r.n].filter(Boolean).join('. '))}</p>` : ''}
       <div class="sheet__acts">
