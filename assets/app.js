@@ -230,11 +230,23 @@ function start(ALL, myPhotos) {
   const inCat = (r, c) => r.c === c || (r.cs && r.cs.includes(c));
   // свои правки поверх данных сайта: ПП/обычный, КБЖУ и разделы; совпавшие с сайтом (уже перенесённые) забываем
   const ppMine = store.get('recipes.pp', {}), kMine = store.get('recipes.kbju', {}), catMine = store.get('recipes.cat', {});
-  ALL.forEach((r) => { r._pp = !!r.pp; r._k = r.k; r._kp = r.kp; r._c = [r.c, ...(r.cs || [])]; });
+  // свой текст рецепта: {t — название, i — ингредиенты, st — шаги, n — заметка}
+  const eMine = store.get('recipes.edit', {});
+  const TXT = ['t', 'i', 'st', 'n'];
+  ALL.forEach((r) => { r._pp = !!r.pp; r._k = r.k; r._kp = r.kp; r._c = [r.c, ...(r.cs || [])]; r._e = { t: r.t, i: r.i, st: r.st, n: r.n || '' }; });
+  const sameTxt = (a, b) => TXT.every((f) => JSON.stringify(a[f]) === JSON.stringify(b[f]));
+  const index = (r) => { r._q = norm(r.t + ' ' + r.i.join(' ') + ' ' + (r.u ? r.w : '')); r._t = norm(r.t); r._d = dishOf(r); };
   const sameK = (a, b) => !!a && !!b && ['k', 'b', 'j', 'u', 'p'].every((f) => a[f] === b[f]);
   function applyMine() {
     const by = new Map(ALL.map((r) => [r.id, r]));
-    ALL.forEach((r) => { r.pp = r._pp; r.k = r._k; r.kp = r._kp; r.c = r._c[0]; r.cs = r._c.slice(1); });
+    ALL.forEach((r) => { r.pp = r._pp; r.k = r._k; r.kp = r._kp; r.c = r._c[0]; r.cs = r._c.slice(1); Object.assign(r, r._e); });
+    Object.entries(eMine).forEach(([id, v]) => {
+      const r = by.get(+id);
+      if (!r || sameTxt(v, r._e)) { delete eMine[id]; return; }
+      Object.assign(r, v);
+    });
+    store.set('recipes.edit', eMine);
+    ALL.forEach(index);
     Object.entries(catMine).forEach(([id, v]) => {
       const r = by.get(+id);
       if (!r || !v.length || v.join('|') === r._c.join('|')) { delete catMine[id]; return; }
@@ -254,7 +266,6 @@ function start(ALL, myPhotos) {
   const week = new Set(store.get('recipes.week', []).filter((id) => ids.has(id)));
   const saveWeek = () => store.set('recipes.week', [...week]);
 
-  ALL.forEach((r) => { r._q = norm(r.t + ' ' + r.i.join(' ') + ' ' + (r.u ? r.w : '')); r._t = norm(r.t); r._d = dishOf(r); });
   const byId = new Map(ALL.map((r) => [r.id, r]));
 
   const DEFAULT = { cat: 'all', mode: 'all', q: '', tag: '', src: '', dish: '', photo: false, k: false, fav: false, week: false, trash: false, sort: 'photo' };
@@ -377,12 +388,12 @@ function start(ALL, myPhotos) {
   const share = $('#share'), mineBtn = $('#fMine');
   const changes = () => ({
     d: [...gone], f: [...favs].filter((id) => !baked.has(id)), u: [...unfav], p: [...myBlobs.keys()],
-    pp: { ...ppMine }, k: { ...kMine }, cat: { ...catMine },
+    pp: { ...ppMine }, k: { ...kMine }, cat: { ...catMine }, e: { ...eMine },
   });
   const ppOn = (c) => Object.values(c.pp).filter(Boolean).length, ppOff = (c) => Object.values(c.pp).filter((v) => !v).length;
-  const kN = (c) => Object.keys(c.k).length, catN = (c) => Object.keys(c.cat).length;
-  const total = (c) => c.d.length + c.f.length + c.u.length + c.p.length + ppOn(c) + ppOff(c) + kN(c) + catN(c);
-  const pack = (c) => ({ v: 3, d: c.d, f: c.f, u: c.u, pp: c.pp, k: c.k, cat: c.cat });
+  const kN = (c) => Object.keys(c.k).length, catN = (c) => Object.keys(c.cat).length, eN = (c) => Object.keys(c.e).length;
+  const total = (c) => c.d.length + c.f.length + c.u.length + c.p.length + ppOn(c) + ppOff(c) + kN(c) + catN(c) + eN(c);
+  const pack = (c) => ({ v: 4, d: c.d, f: c.f, u: c.u, pp: c.pp, k: c.k, cat: c.cat, e: c.e });
   // btoa понимает только латиницу, а в КБЖУ есть «100 г» — кодируем через UTF-8
   const toCode = (c) => 'РЕЦЕПТЫ:' + b64.to(new TextEncoder().encode(JSON.stringify(pack(c))));
   function drawMine() {
@@ -392,7 +403,7 @@ function start(ALL, myPhotos) {
   function openShare() {
     const c = changes();
     const part = [[c.d.length, 'удалено'], [c.f.length, 'в любимых'], [c.u.length, 'убрано из любимых'], [ppOn(c), 'перенесено в ПП'],
-      [ppOff(c), 'убрано из ПП'], [kN(c), 'с моим КБЖУ'], [catN(c), 'перенесено в другие разделы'], [c.p.length, 'своих фото']]
+      [ppOff(c), 'убрано из ПП'], [kN(c), 'с моим КБЖУ'], [catN(c), 'перенесено в другие разделы'], [eN(c), 'с исправленным текстом'], [c.p.length, 'своих фото']]
       .filter(([n]) => n).map(([n, w]) => `${w}: ${n}`);
     $('#shareSum').textContent = part.length ? part.join(' · ') : 'Изменений пока нет.';
     $('#shareCode').value = total(c) - c.p.length ? toCode(c) : '';
@@ -433,9 +444,9 @@ function start(ALL, myPhotos) {
     say(`Файл ${name} сохранён в «Загрузки». Пришлите его Claude.`);
   });
   $('#shareClear').addEventListener('click', async () => {
-    if (!confirm('Очистить удаления, любимые, ПП, КБЖУ, разделы и свои фото на этом устройстве?\nСделайте это, когда Claude уже перенёс их на сайт.')) return;
+    if (!confirm('Очистить удаления, любимые, ПП, КБЖУ, разделы, исправления текста и свои фото на этом устройстве?\nСделайте это, когда Claude уже перенёс их на сайт.')) return;
     gone.clear(); saveGone(); favs.clear(); unfav.clear(); baked.forEach((id) => favs.add(id)); saveFavs();
-    [ppMine, kMine, catMine].forEach((o) => Object.keys(o).forEach((id) => delete o[id])); applyMine(); drawCounts();
+    [ppMine, kMine, catMine, eMine].forEach((o) => Object.keys(o).forEach((id) => delete o[id])); applyMine(); drawCounts();
     await idb('readwrite', (s) => s.clear()).catch(() => {});
     mine.forEach((u) => URL.revokeObjectURL(u)); mine.clear(); myBlobs.clear();
     share.close(); state.trash = false;
@@ -656,6 +667,7 @@ function start(ALL, myPhotos) {
       <div class="sheet__acts">
         <button type="button" class="btn btn--ghost" id="favBtn" aria-pressed="${fav}">${fav ? '♥ В любимых' : '♡ В любимые'}</button>
         <button type="button" class="btn btn--ghost" id="weekBtn" aria-pressed="${week.has(r.id)}">${week.has(r.id) ? '🗓 Готовлю на этой неделе' : '🗓 Приготовить на этой неделе'}</button>
+        <button type="button" class="btn btn--ghost" id="editBtn">✎ Изменить рецепт</button>
         <button type="button" class="btn btn--ghost${r.pp ? '' : ' btn--pp'}" id="ppBtn">${r.pp ? 'Убрать из ПП' : 'Перенести в ПП'}</button>
         ${r.u ? `<a class="btn btn--ghost" href="${esc(r.u)}" target="_blank" rel="noopener noreferrer">Открыть в Instagram ↗</a>` : ''}
         <label class="btn btn--ghost">${mine.has(r.id) || r.img ? 'Заменить фото' : '+ Добавить фото'}<input type="file" accept="image/*" id="photoIn" hidden></label>
@@ -665,6 +677,7 @@ function start(ALL, myPhotos) {
       <p class="sheet__msg" id="sheetMsg" aria-live="polite"></p>
       ${r.i.length ? `<section><h3 class="who">Ингредиенты</h3><ul class="ing">${r.i.map((x) => li(x)).join('')}</ul></section>` : ''}
       ${r.st.length ? `<section><h3 class="who">Приготовление</h3><ol class="steps">${r.st.map((x) => li(x)).join('')}</ol></section>` : ''}
+      ${eMine[r.id] ? '<p class="src">Текст исправлен на этом устройстве · <button type="button" class="kbju__edit" id="eReset">вернуть как было</button></p>' : ''}
       <p class="src"><b>Источник:</b> ${esc(r.s)}${where ? ', ' + esc(where) : ''}${r.a && r.a.length ? `<br>Также встречается в программах: ${esc(r.a.join(', '))}` : ''}</p>`;
   }
   function redrawCard(id) {
@@ -685,7 +698,41 @@ function start(ALL, myPhotos) {
     box.replaceWith(f);
     f.querySelector('input').focus();
   }
+  // свой текст рецепта: форма вместо названия, ингредиентов и шагов
+  const lines = (s) => s.split('\n').map((x) => x.trim().replace(/\s+/g, ' ')).filter(Boolean).map((x) => x.replace(/^#\s*/, '# '));
+  function eForm(r) {
+    const info = $('#sheetInfo');
+    info.querySelectorAll('h2, .sheet__note, section, .sheet__acts').forEach((x) => x.remove());
+    const f = document.createElement('form');
+    f.className = 'edit'; f.id = 'eForm';
+    const rows = (a) => Math.min(18, Math.max(4, a.length + 2));
+    f.innerHTML = `
+      <label><span>Название</span><input name="t" value="${esc(r.t)}" autocomplete="off"></label>
+      <label><span>Заметка</span><textarea name="n" rows="2">${esc(r.n || '')}</textarea></label>
+      <label><span>Ингредиенты</span><textarea name="i" rows="${rows(r.i)}">${esc(r.i.join('\n'))}</textarea>
+        <small>Каждый ингредиент — с новой строки. Подзаголовок — строка с # в начале, например «# Соус».</small></label>
+      <label><span>Приготовление</span><textarea name="st" rows="${rows(r.st) + 4}">${esc(r.st.join('\n'))}</textarea>
+        <small>Каждый шаг — с новой строки.</small></label>
+      <p class="kbju__err" aria-live="polite"></p>
+      <div class="edit__acts"><button class="btn" type="submit">Сохранить</button><button class="btn btn--ghost" type="button" id="eCancel">Отмена</button></div>`;
+    $('.sheet__chips', info).after(f);
+    f.elements.t.focus({ preventScroll: true });
+    f.scrollIntoView({ block: 'start' });
+  }
   sheet.addEventListener('submit', (e) => {
+    if (e.target.id === 'eForm') {
+      e.preventDefault();
+      const f = e.target, id = seq[pos] ?? +location.hash.slice(2), r = byId.get(id);
+      const v = { t: f.elements.t.value.trim().replace(/\s+/g, ' '), i: lines(f.elements.i.value), st: lines(f.elements.st.value), n: f.elements.n.value.trim().replace(/\s+/g, ' ') };
+      if (!v.t) { f.querySelector('.kbju__err').textContent = 'Нужно название.'; return; }
+      // поля, где поменялись только пробелы, оставляем как на сайте
+      const was = { t: r._e.t.trim().replace(/\s+/g, ' '), i: lines(r._e.i.join('\n')), st: lines(r._e.st.join('\n')), n: r._e.n.trim().replace(/\s+/g, ' ') };
+      TXT.forEach((k) => { if (JSON.stringify(v[k]) === JSON.stringify(was[k])) v[k] = r._e[k]; });
+      eMine[id] = v; applyMine();
+      fill(r); $('#sheetMsg').textContent = eMine[id] ? 'Сохранено на этом устройстве. Чтобы рецепт поменялся везде, отправьте «Мои изменения».' : 'Ничего не поменялось.';
+      drawMine(); redrawCard(id);
+      return;
+    }
     if (e.target.id !== 'kForm') return;
     e.preventDefault();
     const f = e.target, id = seq[pos] ?? +location.hash.slice(2);
@@ -718,6 +765,13 @@ function start(ALL, myPhotos) {
       ppMine[id] = r.pp ? 0 : 1; applyMine();
       fill(r); $('#sheetMsg').textContent = r.pp ? 'Рецепт теперь в ПП.' : 'Рецепт убран из ПП, теперь он в обычных.';
       drawCounts(); drawMine(); drawCats(); drawTags(); render(false);
+    }
+    if (e.target.closest('#editBtn')) eForm(byId.get(seq[pos] ?? +location.hash.slice(2)));
+    if (e.target.closest('#eCancel')) fill(byId.get(seq[pos] ?? +location.hash.slice(2)));
+    if (e.target.closest('#eReset')) {
+      const id = seq[pos] ?? +location.hash.slice(2);
+      if (!confirm('Вернуть название, ингредиенты и шаги как на сайте?')) return;
+      delete eMine[id]; applyMine(); fill(byId.get(id)); drawMine(); redrawCard(id);
     }
     if (e.target.closest('#kEdit')) kForm(byId.get(seq[pos] ?? +location.hash.slice(2)));
     if (e.target.closest('#kCancel')) fill(byId.get(seq[pos] ?? +location.hash.slice(2)));
@@ -760,7 +814,7 @@ function start(ALL, myPhotos) {
   $('#sheetPrev').addEventListener('click', () => step(-1));
   $('#sheetNext').addEventListener('click', () => step(1));
   addEventListener('keydown', (e) => {
-    if (sheet.hidden) return;
+    if (sheet.hidden || e.target.closest('input, textarea')) return;
     if (e.key === 'Escape') closeSheet();
     if (e.key === 'ArrowLeft') step(-1);
     if (e.key === 'ArrowRight') step(1);

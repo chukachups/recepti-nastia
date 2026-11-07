@@ -220,6 +220,16 @@ button { font: inherit; color: inherit; }
 .chip--reg { color: var(--ink-2); }
 .sheet__info h2 { margin: 0; font: 800 clamp(24px, 3.2vw, 40px)/1.02 var(--f-big); letter-spacing: -.04em; text-wrap: balance; overflow-wrap: anywhere; }
 .sheet__note { margin: -4px 0 0; font: 500 italic clamp(20px, 2.1vw, 25px)/1.25 var(--f-note); color: var(--ink-2); }
+.edit { display: grid; gap: 14px; }
+.edit label { display: grid; gap: 6px; }
+.edit label > span { font: 800 13px var(--f-big); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+.edit input, .edit textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1.5px solid var(--rule); border-radius: 12px; background: var(--white); font: 500 16px/1.45 var(--f-text); color: var(--ink); resize: vertical; }
+.edit input { font-weight: 800; }
+.edit input:focus, .edit textarea:focus { border-color: var(--ink); outline: none; }
+.edit small { font-size: 13px; color: var(--ink-3); }
+.edit .kbju__err { text-align: left; }
+.edit__acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.edit__acts .btn { height: 40px; padding: 0 16px; font-size: 14px; border-width: 1.5px; }
 .sheet__acts { display: flex; flex-wrap: wrap; gap: 8px; }
 .sheet__acts .btn { height: 40px; padding: 0 16px; font-size: 14px; border-width: 1.5px; }
 .btn { display: inline-flex; align-items: center; gap: 8px; height: 48px; padding: 0 24px; border-radius: 999px; background: var(--butter); color: var(--ink); font-weight: 800; text-decoration: none; border: 2px solid var(--ink); cursor: pointer; transition: background .25s; }
